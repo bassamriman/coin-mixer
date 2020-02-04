@@ -98,8 +98,9 @@ sealed trait MixRequestState {
 
 case class Requested(mixRequest: MixRequest) extends MixRequestState {
   def balanceReceived(balance: BigDecimal,
-                      timestamp: LocalDateTime): ReceivedBalance =
-    ReceivedBalance(MixRequestWithBalance(balance, mixRequest))
+                      timestamp: LocalDateTime,
+                      mixingProperties: MixingProperties)(seed: Long): Mixing =
+    Mixing(MixingMixRequest(MixRequestWithBalance(balance, mixRequest), mixingProperties)(seed))
 
   def balanceNotReceived(timestamp: LocalDateTime): Canceled = Canceled(mixRequest)
 }

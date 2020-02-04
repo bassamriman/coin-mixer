@@ -1,6 +1,7 @@
 package com.gemini.jobcoin.mixrequest
 
 import java.time.LocalDateTime
+import java.util.UUID
 
 trait MixRequest extends MixRequestCoordinateDelegate {
   val id: String
@@ -13,7 +14,11 @@ case class MixRequestImpl(id: String, initiatedAt: LocalDateTime, mixRequestCoor
     with MixRequestCoordinate
 
 object MixRequest {
-  def apply(id: String, initiatedAt: LocalDateTime, mixRequestCoordinate: MixRequestCoordinate): MixRequest = MixRequestImpl(id, initiatedAt, mixRequestCoordinate)
+  def apply(id: String, initiatedAt: LocalDateTime, mixRequestCoordinate: MixRequestCoordinate): MixRequest =
+    MixRequestImpl(id, initiatedAt, mixRequestCoordinate)
+
+  def apply(initiatedAt: LocalDateTime, mixRequestCoordinate: MixRequestCoordinate): MixRequest =
+    MixRequest(UUID.randomUUID().toString, initiatedAt, mixRequestCoordinate)
 }
 
 trait MixRequestDelegate extends MixRequest {

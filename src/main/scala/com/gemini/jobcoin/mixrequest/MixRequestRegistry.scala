@@ -7,7 +7,8 @@ import scala.collection.immutable.TreeSet
 import scala.util.Random
 
 case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
-                              sortedMixRequestsFSMByInitiatedTime: TreeSet[MixRequestFSM]) {
+                              sortedMixRequestsFSMByInitiatedTime: TreeSet[MixRequestFSM],
+                              mixingProperties: MixingProperties) {
 
   def exists(mixRequest: MixRequest): Boolean = keyToMixRequestFSM.contains(mixRequest.id)
 
@@ -21,11 +22,11 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
 
   def register(mixRequest: MixRequest): MixRequestRegistry = register(Seq(mixRequest))
 
-  def balanceReceived(balance: BigDecimal, mixRequest: MixRequest, timestamp: LocalDateTime): Option[MixRequestRegistry] = {
+  def balanceReceived(balance: BigDecimal, mixRequest: MixRequest, timestamp: LocalDateTime)(seed: Long): Option[MixRequestRegistry] = {
     keyToMixRequestFSM.get(mixRequest.id).map {
       oldMixRequestFSM => {
         val newState = oldMixRequestFSM.state match {
-          case mixRequestState: Requested => mixRequestState.balanceReceived(balance, timestamp)
+          case mixRequestState: Requested => mixRequestState.balanceReceived(balance, timestamp, mixingProperties)(seed)
           case otherState => otherState
         }
 
@@ -38,8 +39,10 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
   }
 
 
-  def scheduleMixRequestTasks(numberOfMixRequestTaskToSchedule: Int,
-                              timestamp: LocalDateTime)(seed: Long): (MixRequestRegistry, Seq[MixRequestTask]) = {
+  def balanceNotReceived(mixRequest: MixRequest, timestamp: LocalDateTime): Option[MixRequestRegistry] = ???
+
+
+  def scheduleMixRequestTasks(timestamp: LocalDateTime)(seed: Long): (MixRequestRegistry, Seq[MixRequestTask]) = {
     val mixRequestStates: Set[Mixing] = sortedMixRequestsFSMByInitiatedTime.flatMap {
       mixRequestFSM => {
         mixRequestFSM.state match {
@@ -50,7 +53,7 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
     }
 
     val (selectedMixRequestStates, selectedMixRequestTask) =
-      scheduleMixRequestTasksUntilNumberIsMet(mixRequestStates.toList, numberOfMixRequestTaskToSchedule, timestamp)
+      scheduleMixRequestTasksUntilNumberIsMet(mixRequestStates.toList, mixingProperties.numberOfMixRequestTaskToSchedule, timestamp)
 
     val event: MixRequestEvent = ScheduleMixRequestTask(timestamp)
 
@@ -72,10 +75,10 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
   }
 
   def commitMixRequestTask(mixRequestTasks: Seq[MixRequestTask],
-                           timestamp: LocalDateTime)(seed: Long): (MixRequestRegistry, Seq[MixRequestTask]) = ???
+                           timestamp: LocalDateTime): (MixRequestRegistry, Seq[MixRequestTask]) = ???
 
   def completeMixRequestTask(mixRequestTasks: Seq[MixRequestTask],
-                             timestamp: LocalDateTime)(seed: Long): (MixRequestRegistry, Seq[MixRequestTask]) = ???
+                             timestamp: LocalDateTime): (MixRequestRegistry, Seq[MixRequestTask]) = ???
 
   private def updateStateOfMixRequestFSM(newStates: Seq[MixRequestState],
                                          event: MixRequestEvent,

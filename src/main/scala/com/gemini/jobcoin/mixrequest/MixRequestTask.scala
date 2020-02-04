@@ -3,7 +3,9 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 import java.util.UUID
 
-import com.gemini.jobcoin.{Identifiable, Transaction, mixrequest}
+import com.gemini.jobcoin.accounting.Transaction
+import com.gemini.jobcoin.common.Identifiable
+import com.gemini.jobcoin.mixrequest
 
 case class MixRequestTask(id: String,
                           mixRequestId: String,

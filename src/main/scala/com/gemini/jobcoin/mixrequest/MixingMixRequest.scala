@@ -3,12 +3,14 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 
 import com.gemini.jobcoin._
+import com.gemini.jobcoin.accounting.TransactionGenerator
 
 case class MixingProperties(minTransactionPerDestinationAddress: Int,
                             maxTransactionPerDestinationAddress: Int,
                             minTransactionAmount: BigDecimal,
                             maxTransactionAmount: BigDecimal,
-                            maxScale: Int)
+                            maxScale: Int,
+                            numberOfMixRequestTaskToSchedule: Int)
 
 trait MixingMixRequest extends MixRequestWithBalanceDelegate {
   val mixRequestWithBalance: MixRequestWithBalance
