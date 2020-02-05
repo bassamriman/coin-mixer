@@ -1,5 +1,5 @@
 package com.gemini.jobcoin.actors
 
-trait JobCoinActor {
+import akka.actor.{Actor, ActorLogging}
 
-}
+trait MixerActor extends Actor with ActorLogging

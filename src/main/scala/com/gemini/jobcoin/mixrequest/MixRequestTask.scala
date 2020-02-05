@@ -3,13 +3,13 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 import java.util.UUID
 
-import com.gemini.jobcoin.accounting.Transaction
+import com.gemini.jobcoin.accounting.IdentifiableTransaction
 import com.gemini.jobcoin.common.Identifiable
 import com.gemini.jobcoin.mixrequest
 
 case class MixRequestTask(id: String,
                           mixRequestId: String,
-                          transaction: Transaction,
+                          transaction: IdentifiableTransaction,
                           state: MixRequestTaskState,
                           eventHistory: Seq[MixRequestTaskEvent]) extends Identifiable {
   def reset(timestamp: LocalDateTime): MixRequestTask =
@@ -25,7 +25,7 @@ case class MixRequestTask(id: String,
 }
 
 object MixRequestTask {
-  def apply(mixRequestId: String, transaction: Transaction): MixRequestTask =
+  def apply(mixRequestId: String, transaction: IdentifiableTransaction): MixRequestTask =
     MixRequestTask(
       id = UUID.randomUUID().toString,
       mixRequestId = mixRequestId,
@@ -33,7 +33,7 @@ object MixRequestTask {
       state = Idle,
       eventHistory = Seq.empty)
 
-  def many(mixRequestId: String, transactions: Seq[Transaction]): Seq[MixRequestTask] =
+  def many(mixRequestId: String, transactions: Seq[IdentifiableTransaction]): Seq[MixRequestTask] =
     transactions.map(mixrequest.MixRequestTask(mixRequestId, _))
 }
 

@@ -2,7 +2,6 @@ package com.gemini.jobcoin.mixrequest
 
 import java.time.LocalDateTime
 
-import com.gemini.jobcoin._
 import com.gemini.jobcoin.accounting.TransactionGenerator
 
 case class MixingProperties(minTransactionPerDestinationAddress: Int,
@@ -22,7 +21,7 @@ trait MixingMixRequest extends MixRequestWithBalanceDelegate {
 
   def commitScheduledPricingTask(mixRequestTaskToCommit: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
 
-  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
+  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (CompletedMixRequest, Seq[MixRequestTask])
 
   def changePricingStateToNextState(mixRequestTaskToChangeToNextState: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
 
@@ -75,25 +74,20 @@ case class MixingMixRequestImpl(mixRequestWithBalance: MixRequestWithBalance,
     changePricingStateToNextState(mixRequestTaskToCommit, timestamp)
   }
 
-  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask]) = {
+  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (CompletedMixRequest, Seq[MixRequestTask]) = {
     validateMixRequestTaskState(Committed, mixRequestTaskToComplete)
     val (newMixingMixRequest, updatedMixRequestTask) = changePricingStateToNextState(mixRequestTaskToComplete, timestamp)
-    val notCompletedMixRequestTask = newMixingMixRequest.mixRequestTasks.values.filterNot(_.state == Completed)
-    if (notCompletedMixRequestTask.isEmpty) {
-      (CompletedMixRequest(timestamp, this), updatedMixRequestTask)
-    } else {
-      (newMixingMixRequest, updatedMixRequestTask)
-    }
+    (CompletedMixRequest(timestamp, newMixingMixRequest), updatedMixRequestTask)
   }
 
   def changePricingStateToNextState(mixRequestTaskToChangeToNextState: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask]) = {
     validateMixRequestTask(mixRequestTaskToChangeToNextState)
 
-    val resetMixRequestTask = mixRequestTaskToChangeToNextState
+    val resetMixRequestTask: Seq[(String, MixRequestTask)] = mixRequestTaskToChangeToNextState
       .map(_.nextState(timestamp))
       .map(mixRequestTask => mixRequestTask.id -> mixRequestTask)
 
-    (this.copy(mixRequestTasks = this.mixRequestTasks ++ resetMixRequestTask), resetMixRequestTask)
+    (this.copy(mixRequestTasks = this.mixRequestTasks ++ resetMixRequestTask), resetMixRequestTask.map(_._2))
 
   }
 
@@ -129,10 +123,4 @@ object MixingMixRequest {
       Map(mixRequestTasks.map(mixRequestTask => mixRequestTask.id -> mixRequestTask): _*)
     MixingMixRequestImpl(mixRequestWithBalance, idToMixRequestMap)
   }
-}
-
-trait MixingMixRequestDelegate extends MixingMixRequest {
-  val mixingMixRequest: MixingMixRequest
-
-  val mixRequestWithBalance: MixRequestWithBalance = mixingMixRequest.mixRequestWithBalance
 }

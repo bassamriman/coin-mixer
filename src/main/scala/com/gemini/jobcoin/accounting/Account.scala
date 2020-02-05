@@ -1,4 +1,4 @@
-package com.gemini.jobcoin
+package com.gemini.jobcoin.accounting
 
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
@@ -6,12 +6,18 @@ trait Account {
   val address: String
   val startingBalance: BigDecimal
   val currentBalance: BigDecimal
-  val ledger: Map[String, Transaction]
+  val ledger: IdentifiableTransactionLedger
+
 }
 
-case class StandardAccount(address: String, startingBalance: BigDecimal, ledger: Map[String, Transaction]) extends Account {
-  val currentBalance: BigDecimal = startingBalance + ledger.map(_._2.signAdjustAmount(address)).sum
+case class StandardAccount(address: String, startingBalance: BigDecimal, ledger: IdentifiableTransactionLedger) extends Account {
+  val currentBalance: BigDecimal = startingBalance + ledger.balance(address)
 }
+
+object StandardAccount {
+  def empty(address: String): StandardAccount = StandardAccount(address, 0, Ledger.emptyIdentifiableTransactionLedger)
+}
+
 
 case class ReservableBalanceAccount(address: String,
                                     account: Account,
@@ -20,12 +26,17 @@ case class ReservableBalanceAccount(address: String,
   val currentBalance: BigDecimal = account.currentBalance - reservedBalanceAccount.currentBalance
   val reservedBalance: BigDecimal = reservedBalanceAccount.currentBalance
 
-  val ledger: Map[String, Transaction] = account.ledger ++ reservedBalanceAccount.ledger
+  val ledger: IdentifiableTransactionLedger = account.ledger + reservedBalanceAccount.ledger
 
-  def allocatedAmount(transactions: Seq[Transaction]): ReservableBalanceAccount = ???
+  def allocatedAmount(transactions: Seq[IdentifiableTransaction]): ReservableBalanceAccount = ???
 
-  def commitTransactions(transactions: Seq[Transaction]): ReservableBalanceAccount = ???
+  def commitTransactions(transactions: Seq[IdentifiableTransaction]): ReservableBalanceAccount = ???
 
+}
+
+object ReservableBalanceAccount {
+  def empty(address: String): ReservableBalanceAccount =
+    ReservableBalanceAccount(address, StandardAccount.empty(address), StandardAccount.empty(address))
 }
 
 
@@ -36,7 +47,7 @@ case class MixingAccount(reservedBalanceAccount: ReservableBalanceAccount,
   val address: String = reservedBalanceAccount.address
   val startingBalance: BigDecimal = reservedBalanceAccount.startingBalance
   val currentBalance: BigDecimal = reservedBalanceAccount.currentBalance
-  val ledger: Map[String, Transaction] = reservedBalanceAccount.ledger
+  val ledger: IdentifiableTransactionLedger = reservedBalanceAccount.ledger
   val reservedBalance: BigDecimal = reservedBalanceAccount.reservedBalance
 
   def balanceAvailableForWithdrawal(balance: BigDecimal): Boolean = balance >= currentBalance
@@ -46,4 +57,8 @@ case class MixingAccount(reservedBalanceAccount: ReservableBalanceAccount,
   def addScheduledMixRequestTasks(mixRequestTasks: Seq[MixRequestTask]): MixingAccount = ???
 
   def addCompletedMixRequestTasks(mixRequestTasks: Seq[MixRequestTask]): MixingAccount = ???
+}
+
+object MixingAccount {
+  def empty(address: String): MixingAccount = MixingAccount(ReservableBalanceAccount.empty(address), Map.empty, Map.empty)
 }

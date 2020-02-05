@@ -2,17 +2,17 @@ package com.gemini.jobcoin.mixrequest
 
 import java.time.LocalDateTime
 
-trait CompletedMixRequest extends MixingMixRequestDelegate {
-  val mixingMixRequest: MixingMixRequest
+trait CompletedMixRequest extends MixRequestWithBalanceDelegate {
+  val mixRequestWithBalance: MixRequestWithBalance
 }
 
-case class CompletedMixRequestImpl(completedAt: LocalDateTime, mixingMixRequest: MixingMixRequest)
+case class CompletedMixRequestImpl(completedAt: LocalDateTime, mixRequestWithBalance: MixRequestWithBalance)
   extends CompletedMixRequest
-    with MixingMixRequest
     with MixRequestWithBalance
     with MixRequest
     with MixRequestCoordinate
 
 object CompletedMixRequest {
-  def apply(completedAt: LocalDateTime, mixingMixRequest: MixingMixRequest): CompletedMixRequest = CompletedMixRequestImpl(completedAt, mixingMixRequest)
+  def apply(completedAt: LocalDateTime, mixRequestWithBalance: MixRequestWithBalance): CompletedMixRequest =
+    CompletedMixRequestImpl(completedAt, mixRequestWithBalance)
 }

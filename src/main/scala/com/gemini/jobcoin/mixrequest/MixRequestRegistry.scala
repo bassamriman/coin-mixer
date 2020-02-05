@@ -70,8 +70,8 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
 
     val newSortedMixRequestsFSMByInitiatedTime = sortedMixRequestsFSMByInitiatedTime -- mixRequestFSMsToRemove ++ mixRequestFSMsToAdd
 
-    (this.copy(keyToMixRequestFSM = newKeyToMixRequestFSM, sortedMixRequestsFSMByInitiatedTime = newSortedMixRequestsFSMByInitiatedTime), shuffledSelectedMixRequestTask)
-
+    this.copy(keyToMixRequestFSM = newKeyToMixRequestFSM,
+      sortedMixRequestsFSMByInitiatedTime = newSortedMixRequestsFSMByInitiatedTime)
   }
 
   def commitMixRequestTask(mixRequestTasks: Seq[MixRequestTask],
@@ -141,8 +141,9 @@ case class MixRequestRegistry(keyToMixRequestFSM: Map[String, MixRequestFSM],
 
 
 object MixRequestRegistry {
-  def apply(): MixRequestRegistry =
-    MixRequestRegistry(Map.empty(MixRequestFSMOrdering), TreeSet.empty[MixRequestFSM](MixRequestFSMOrdering))
-
-
+  def empty(mixingProperties: MixingProperties): MixRequestRegistry =
+    MixRequestRegistry(
+      Map.empty(MixRequestFSMOrdering),
+      TreeSet.empty[MixRequestFSM](MixRequestFSMOrdering),
+      mixingProperties)
 }

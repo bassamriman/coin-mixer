@@ -12,14 +12,14 @@ class MixerTests extends FlatSpec with Matchers {
     val outCapture = new ByteArrayOutputStream
     Console.withIn(inputStream) {
       Console.withOut(outCapture) {
-        JobcoinMixer.main(Array[String]())
+        JobcoinMixerDemo.main(Array[String]())
       }
     }
 
-    val expectedOutput = s"""${JobcoinMixer.prompt}
+    val expectedOutput = s"""${JobcoinMixerDemo.prompt}
     |You must specify empty addresses to mix into!
-    |${JobcoinMixer.helpText}
-    |${JobcoinMixer.prompt}
+    |${JobcoinMixerDemo.helpText}
+    |${JobcoinMixerDemo.prompt}
     |Quitting...
     |""".stripMargin
 
@@ -32,7 +32,7 @@ class MixerTests extends FlatSpec with Matchers {
     val outCapture = new ByteArrayOutputStream
     Console.withIn(inputStream) {
       Console.withOut(outCapture) {
-        JobcoinMixer.main(Array[String]("test1", "test2"))
+        JobcoinMixerDemo.main(Array[String]("test1", "test2"))
       }
     }
 

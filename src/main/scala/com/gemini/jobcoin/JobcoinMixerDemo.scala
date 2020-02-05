@@ -2,49 +2,26 @@ package com.gemini.jobcoin
 
 import java.util.UUID
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.gemini.jobcoin.actors.{NewRequestHandlerActor, SupervisorActor}
-import com.gemini.jobcoin.mixrequest.{MixRequestCoordinate, MixingProperties}
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.duration._
 import scala.io.StdIn
 
-object JobcoinMixer {
-
-  object CompletedException extends Exception {}
+object JobcoinMixerDemo {
+  object CompletedException extends Exception { }
 
   def main(args: Array[String]): Unit = {
     // Create an actor system
     implicit val actorSystem = ActorSystem()
     implicit val materializer = ActorMaterializer()
 
-
     // Load Config
     val config = ConfigFactory.load()
 
-    val mixingAddress: String = UUID.randomUUID().toString
-    val mixingProperties =
-      MixingProperties(
-        minTransactionPerDestinationAddress = 10,
-        maxTransactionPerDestinationAddress = 20,
-        minTransactionAmount = BigDecimal(0),
-        maxTransactionAmount = BigDecimal(10),
-        maxScale = 3,
-        numberOfMixRequestTaskToSchedule = 10
-      )
-
-    val supervisorActor: ActorRef = actorSystem.actorOf(
-      SupervisorActor.props(
-        address = mixingAddress,
-        mixingProperties = mixingProperties,
-        delayBetweenMixing = 10 seconds,
-        delayBetweenAllTransactionFetching = 10 seconds,
-        mockAPI = true
-      ))
-
-    supervisorActor ! SupervisorActor.StartTheWorld
+    // Test HTTP client
+    // val client = new JobcoinClient(config)
+    // client.testGet().map(response => println(s"Response:\n$response"))
 
     try {
       while (true) {
@@ -58,7 +35,6 @@ object JobcoinMixer {
           println(s"You must specify empty addresses to mix into!\n$helpText")
         } else {
           val depositAddress = UUID.randomUUID()
-          supervisorActor ! NewRequestHandlerActor.NewRequests(Seq(MixRequestCoordinate(depositAddress.toString, addresses)))
           println(s"You may now send Jobcoins to address $depositAddress. They will be mixed and sent to your destination addresses.")
         }
       }
