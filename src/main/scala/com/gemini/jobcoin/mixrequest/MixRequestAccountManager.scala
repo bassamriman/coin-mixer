@@ -10,24 +10,26 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
   def registerNewMixRequest(mixRequest: Seq[MixRequest]): MixRequestAccountManager =
     this.copy(mixRequestRegistry = mixRequestRegistry.register(mixRequest))
 
-  def balanceReceivedFor(balance: BigDecimal, mixRequest: MixRequest, timestamp: LocalDateTime)(seed: Long): MixRequestAccountManager =
-    mixRequestRegistry.balanceReceived(balance, mixRequest, timestamp)(seed).map {
-      newMixRequestRegistry => this.copy(mixRequestRegistry = newMixRequestRegistry)
-    }.getOrElse(this)
+  def balanceReceivedFor(balanceMixRequestPairs: Seq[(BigDecimal, MixRequest)],
+                         timestamp: LocalDateTime): (MixRequestAccountManager, Seq[MixRequestTask]) = {
+    val (newMixRequestRegistry, mixRequestTasks) = mixRequestRegistry.balanceReceived(balanceMixRequestPairs, timestamp)
+    this.copy(mixRequestRegistry = newMixRequestRegistry) -> mixRequestTasks
+  }
 
-  def balanceNotReceived(mixRequest: MixRequest, timestamp: LocalDateTime): MixRequestAccountManager =
-    mixRequestRegistry.balanceNotReceived(mixRequest, timestamp).map {
-      newMixRequestRegistry => this.copy(mixRequestRegistry = newMixRequestRegistry)
-    }.getOrElse(this)
 
-  def scheduleMixRequestTasks(timestamp: LocalDateTime)(seed: Long): (MixRequestAccountManager, Option[Seq[MixRequestTask]]) = {
+  def balanceNotReceived(mixRequest: Seq[MixRequest], timestamp: LocalDateTime): (MixRequestAccountManager, Seq[MixRequestTask]) = {
+    val (newMixRequestRegistry, mixRequestTasks) = mixRequestRegistry.balanceNotReceived(mixRequest, timestamp)
+    this.copy(mixRequestRegistry = newMixRequestRegistry) -> mixRequestTasks
+  }
+
+  def scheduleMixRequestTasks(timestamp: LocalDateTime)(seed: Long): (MixRequestAccountManager, Seq[MixRequestTask]) = {
     val (newMixRequestRegistry, mixRequestTasks) =
       mixRequestRegistry.scheduleMixRequestTasks(timestamp)(seed)
     if (mixingAccount.fundAvailableForMixRequestTasks(mixRequestTasks)) {
       val newMixingAccount = mixingAccount.addScheduledMixRequestTasks(mixRequestTasks)
-      (this.copy(mixingAccount = newMixingAccount, mixRequestRegistry = newMixRequestRegistry), Some(mixRequestTasks))
+      (this.copy(mixingAccount = newMixingAccount, mixRequestRegistry = newMixRequestRegistry), mixRequestTasks)
     } else {
-      (this, None)
+      (this, Seq.empty)
     }
   }
 

@@ -1,6 +1,7 @@
 package com.gemini.jobcoin.actors
 
 import akka.actor.{ActorRef, PoisonPill, Props}
+import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixingProperties
 
 import scala.concurrent.duration._
@@ -9,7 +10,10 @@ case class SupervisorActor(address: String,
                            mixingProperties: MixingProperties,
                            delayBetweenMixing: FiniteDuration,
                            delayBetweenAllTransactionFetching: FiniteDuration,
-                           mockAPI: Boolean) extends MixerActor {
+                           accountManagerInitialSeed: Long,
+                           mixedTransactionGeneratorInitialSeed: Long,
+                           mockAPI: Boolean,
+                          ) extends MixerActor {
 
   import SupervisorActor._
 
@@ -18,35 +22,44 @@ case class SupervisorActor(address: String,
   def idle: Receive = {
     case SupervisorActor =>
 
-      val newRequestHandlerActor: ActorRef =
-        context.actorOf(NewRequestHandlerActor.props)
       val balanceMonitorActor: ActorRef =
         context.actorOf(BalanceMonitorActor.props)
-      val committerActor: ActorRef =
-        context.actorOf(CommitterActor.props)
+
+      val mixedTransactionGeneratorActor: ActorRef =
+        context.actorOf(
+          MixedTransactionGeneratorActor.props(
+            mixingProperties,
+            mixedTransactionGeneratorInitialSeed))
+
       val validatorActor: ActorRef =
         context.actorOf(ValidatorActor.props)
-      val ledgerActor: ActorRef =
-        context.actorOf(LedgerActor.props(Seq(balanceMonitorActor, validatorActor)))
+
       val apiAccessActor: ActorRef =
         context.actorOf(if (mockAPI) MockAPIAccessActor.props else APIAccessActor.props)
+
+      val committerActor: ActorRef =
+        context.actorOf(CommitterActor.props(apiAccessActor = apiAccessActor))
+
+      val ledgerActor: ActorRef =
+        context.actorOf(LedgerActor.props(
+          subscribers = Seq(balanceMonitorActor, validatorActor),
+          apiAccessActor = apiAccessActor))
+
       val accountManagerActor: ActorRef =
         context.actorOf(
           AccountManagerActor.props(
             address = address,
-            mixingProperties = mixingProperties)
+            mixingProperties = mixingProperties,
+            initialSeed = accountManagerInitialSeed,
+            balanceMonitorActor = balanceMonitorActor,
+            mixedTransactionGeneratorActor = mixedTransactionGeneratorActor,
+            committerActor = committerActor,
+            validatorActor = validatorActor
+          )
         )
 
-      ledgerActor ! LedgerActor.StartWith(apiAccessActor)
-      newRequestHandlerActor ! NewRequestHandlerActor.StartWith(accountManagerActor)
-      balanceMonitorActor ! BalanceMonitorActor.StartWith(accountManagerActor)
-      committerActor ! CommitterActor.StartWith(apiAccessActor, accountManagerActor)
-      validatorActor ! ValidatorActor.StartWith(accountManagerActor)
-      accountManagerActor ! AccountManagerActor.StartWith(
-        balanceMonitorActor = balanceMonitorActor,
-        committerActor = committerActor,
-        validatorActor = validatorActor
-      )
+      val newRequestDispatcherActor: ActorRef =
+        context.actorOf(NewRequestDispatcherActor.props(accountManagerActor))
 
       val evaluationContext = context.system.dispatcher
       context.system.scheduler.schedule(
@@ -69,7 +82,7 @@ case class SupervisorActor(address: String,
           validatorActor = validatorActor,
           ledgerActor = ledgerActor,
           apiAccessActor = apiAccessActor,
-          newRequestHandlerActor = newRequestHandlerActor
+          newRequestHandlerActor = newRequestDispatcherActor
         )
       )
   }
@@ -84,7 +97,7 @@ case class SupervisorActor(address: String,
     case EndTheWorld =>
       context.children.foreach(_ ! PoisonPill)
       context.system.terminate()
-    case newMixRequest: NewRequestHandlerActor.NewRequests =>
+    case newMixRequest: NewRequestDispatcherActor.NewRequests =>
       newRequestHandlerActor ! newMixRequest
   }
 }
@@ -95,12 +108,16 @@ object SupervisorActor {
             mixingProperties: MixingProperties,
             delayBetweenMixing: FiniteDuration,
             delayBetweenAllTransactionFetching: FiniteDuration,
+            accountManagerInitialSeed: Long,
+            mixedTransactionGeneratorInitialSeed: Long,
             mockAPI: Boolean): Props =
     Props(SupervisorActor(
       address = address,
       mixingProperties = mixingProperties,
       delayBetweenMixing = delayBetweenMixing,
       delayBetweenAllTransactionFetching = delayBetweenAllTransactionFetching,
+      accountManagerInitialSeed = accountManagerInitialSeed,
+      mixedTransactionGeneratorInitialSeed = mixedTransactionGeneratorInitialSeed,
       mockAPI = mockAPI
     ))
 

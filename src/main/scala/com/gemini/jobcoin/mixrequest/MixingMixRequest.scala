@@ -2,7 +2,7 @@ package com.gemini.jobcoin.mixrequest
 
 import java.time.LocalDateTime
 
-import com.gemini.jobcoin.accounting.TransactionGenerator
+import com.gemini.jobcoin.accounting.IdentifiableTransaction
 
 case class MixingProperties(minTransactionPerDestinationAddress: Int,
                             maxTransactionPerDestinationAddress: Int,
@@ -21,7 +21,7 @@ trait MixingMixRequest extends MixRequestWithBalanceDelegate {
 
   def commitScheduledPricingTask(mixRequestTaskToCommit: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
 
-  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (CompletedMixRequest, Seq[MixRequestTask])
+  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
 
   def changePricingStateToNextState(mixRequestTaskToChangeToNextState: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask])
 
@@ -74,10 +74,9 @@ case class MixingMixRequestImpl(mixRequestWithBalance: MixRequestWithBalance,
     changePricingStateToNextState(mixRequestTaskToCommit, timestamp)
   }
 
-  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (CompletedMixRequest, Seq[MixRequestTask]) = {
+  def markCompletePricingTask(mixRequestTaskToComplete: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask]) = {
     validateMixRequestTaskState(Committed, mixRequestTaskToComplete)
-    val (newMixingMixRequest, updatedMixRequestTask) = changePricingStateToNextState(mixRequestTaskToComplete, timestamp)
-    (CompletedMixRequest(timestamp, newMixingMixRequest), updatedMixRequestTask)
+    changePricingStateToNextState(mixRequestTaskToComplete, timestamp)
   }
 
   def changePricingStateToNextState(mixRequestTaskToChangeToNextState: Seq[MixRequestTask], timestamp: LocalDateTime): (MixingMixRequest, Seq[MixRequestTask]) = {
@@ -101,24 +100,15 @@ case class MixingMixRequestImpl(mixRequestWithBalance: MixRequestWithBalance,
 
 
   //TODO: Make more efficient by using map
-  def selectPricingTasksByState(state: MixRequestTaskState): Seq[MixRequestTask] = mixRequestTasks.values.filter(_.state == state).toSeq
+  def selectPricingTasksByState(state: MixRequestTaskState): Seq[MixRequestTask] =
+    mixRequestTasks.values.filter(_.state == state).toSeq
 }
 
 object MixingMixRequest {
-  def apply(mixRequestWithBalance: MixRequestWithBalance, mixingProperties: MixingProperties)(seed: Long): MixingMixRequest = {
+  def apply(mixRequestWithBalance: MixRequestWithBalance, transactions: Seq[IdentifiableTransaction]): MixingMixRequest = {
     val mixRequestTasks: Seq[MixRequestTask] = MixRequestTask.many(
       mixRequestId = mixRequestWithBalance.id,
-      transactions = TransactionGenerator.generateTransactions(
-        amountToDistribute = mixRequestWithBalance.sourceAddressBalance,
-        sourceAddress = mixRequestWithBalance.sourceAddress,
-        destinationAddresses = mixRequestWithBalance.destinationAddresses,
-        minTransactionPerDestinationAddress = mixingProperties.minTransactionPerDestinationAddress,
-        maxTransactionPerDestinationAddress = mixingProperties.maxTransactionPerDestinationAddress,
-        minTransactionAmount = mixingProperties.minTransactionAmount,
-        maxTransactionAmount = mixingProperties.maxTransactionAmount,
-        maxScale = mixingProperties.maxScale
-      )(seed))
-
+      transactions = transactions)
     val idToMixRequestMap: Map[String, MixRequestTask] =
       Map(mixRequestTasks.map(mixRequestTask => mixRequestTask.id -> mixRequestTask): _*)
     MixingMixRequestImpl(mixRequestWithBalance, idToMixRequestMap)

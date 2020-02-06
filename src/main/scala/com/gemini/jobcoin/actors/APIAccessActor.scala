@@ -2,6 +2,7 @@ package com.gemini.jobcoin.actors
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.accounting._
+import com.gemini.jobcoin.common.MixerActor
 
 case class MockAPIAccessActor() extends MixerActor {
 

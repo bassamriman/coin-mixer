@@ -1,10 +1,11 @@
 package com.gemini.jobcoin
 
+import java.time.LocalDateTime
 import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.ActorMaterializer
-import com.gemini.jobcoin.actors.{NewRequestHandlerActor, SupervisorActor}
+import com.gemini.jobcoin.actors.{NewRequestDispatcherActor, SupervisorActor}
 import com.gemini.jobcoin.mixrequest.{MixRequestCoordinate, MixingProperties}
 import com.typesafe.config.ConfigFactory
 
@@ -41,6 +42,8 @@ object JobcoinMixer {
         mixingProperties = mixingProperties,
         delayBetweenMixing = 10 seconds,
         delayBetweenAllTransactionFetching = 10 seconds,
+        accountManagerInitialSeed = 13,
+        mixedTransactionGeneratorInitialSeed = 20,
         mockAPI = true
       ))
 
@@ -58,7 +61,8 @@ object JobcoinMixer {
           println(s"You must specify empty addresses to mix into!\n$helpText")
         } else {
           val depositAddress = UUID.randomUUID()
-          supervisorActor ! NewRequestHandlerActor.NewRequests(Seq(MixRequestCoordinate(depositAddress.toString, addresses)))
+          val now = LocalDateTime.now()
+          supervisorActor ! NewRequestDispatcherActor.NewRequests(Seq(MixRequestCoordinate(depositAddress.toString, addresses)), now)
           println(s"You may now send Jobcoins to address $depositAddress. They will be mixed and sent to your destination addresses.")
         }
       }

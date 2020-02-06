@@ -2,30 +2,24 @@ package com.gemini.jobcoin.actors
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.accounting.IdentifiableTransactionLedger
+import com.gemini.jobcoin.common.MixerActor
 
-case class LedgerActor(subscribers: Seq[ActorRef]) extends MixerActor {
+case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef) extends MixerActor {
 
   import LedgerActor._
 
-  override def receive: Receive = idle
+  override def receive: Receive = handle
 
-  def idle: Receive = {
-    case StartWith(apiAccessActor) =>
-      context.become(handle(apiAccessActor))
-  }
-
-  def handle(apiAccessActor: ActorRef): Receive = {
+  def handle: Receive = {
     case FetchLatestLedger => apiAccessActor ! APIAccessActor.GetAllTransactions
     case APIAccessActor.LatestLedger(newLedger) =>
       subscribers.foreach(_ ! LatestLedger(newLedger))
-      context.become(handle(apiAccessActor))
   }
 }
 
 object LedgerActor {
-  def props(subscribers: Seq[ActorRef]): Props = Props(LedgerActor(subscribers))
-
-  case class StartWith(apiAccessActor: ActorRef)
+  def props(subscribers: Seq[ActorRef], apiAccessActor: ActorRef): Props =
+    Props(LedgerActor(subscribers, apiAccessActor))
 
   case object SendMeLatestLedger
 

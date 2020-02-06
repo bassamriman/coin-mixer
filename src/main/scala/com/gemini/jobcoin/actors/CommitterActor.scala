@@ -1,53 +1,53 @@
 package com.gemini.jobcoin.actors
 
 import akka.actor.{ActorRef, Props}
+import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
-case class CommitterActor() extends MixerActor {
+case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
 
   import CommitterActor._
 
-  override def receive: Receive = idle
-
-  def idle: Receive = {
-    case StartWith(apiAccessActor, accountManagerActorRef) =>
-      context.become(handle(Map.empty, apiAccessActor, accountManagerActorRef))
-  }
+  override def receive: Receive = handle(Map.empty, Map.empty)
 
   def handle(transactionAwaitingConfirmation: Map[String, MixRequestTask],
-             apiAccessActor: ActorRef,
-             accountManagerActorRef: ActorRef): Receive = {
+             mixRequestTaskToSender: Map[String, ActorRef]): Receive = {
     case Commit(mixRequestTask) =>
+      val sender = context.sender()
       apiAccessActor ! APIAccessActor.CommitTransaction(mixRequestTask.transaction)
       val newTransactionAwaitingConfirmation =
         transactionAwaitingConfirmation + (mixRequestTask.transaction.id -> mixRequestTask)
+      val newMixRequestTaskToSender =
+        mixRequestTaskToSender + (mixRequestTask.transaction.id -> sender)
       context.become(
         handle(
           transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          apiAccessActor = apiAccessActor,
-          accountManagerActorRef = accountManagerActorRef))
+          mixRequestTaskToSender = newMixRequestTaskToSender))
 
     case APIAccessActor.StoredConfirmation(transaction) =>
+      val correspondingMixRequestTask = transactionAwaitingConfirmation(transaction.id)
       val newTransactionAwaitingConfirmation =
         transactionAwaitingConfirmation - transaction.id
-      transactionAwaitingConfirmation
-        .get(transaction.id)
-        .foreach(mixRequestTask =>
-          accountManagerActorRef ! AccountManagerActor.Committed(Seq(mixRequestTask)))
+      val newMixRequestTaskToSender =
+        mixRequestTaskToSender - correspondingMixRequestTask.id
+
+      val sender = mixRequestTaskToSender(correspondingMixRequestTask.id)
+
+      sender ! Committed(Seq(correspondingMixRequestTask))
+
       context.become(
         handle(
           transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          apiAccessActor = apiAccessActor,
-          accountManagerActorRef = accountManagerActorRef))
+          mixRequestTaskToSender = newMixRequestTaskToSender))
 
   }
 }
 
 object CommitterActor {
-  def props: Props = Props(CommitterActor())
-
-  case class StartWith(apiAccessActor: ActorRef, accountManagerActorRef: ActorRef)
+  def props(apiAccessActor: ActorRef): Props = Props(CommitterActor(apiAccessActor))
 
   case class Commit(mixRequestTask: MixRequestTask)
+
+  case class Committed(mixRequestTasks: Seq[MixRequestTask])
 
 }
