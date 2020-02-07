@@ -44,7 +44,8 @@ object JobcoinMixer {
         delayBetweenAllTransactionFetching = 10 seconds,
         accountManagerInitialSeed = 13,
         mixedTransactionGeneratorInitialSeed = 20,
-        mockAPI = true
+        mockAPI = true,
+        1
       ))
 
     supervisorActor ! SupervisorActor.StartTheWorld

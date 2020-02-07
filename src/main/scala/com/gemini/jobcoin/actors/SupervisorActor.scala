@@ -13,60 +13,75 @@ case class SupervisorActor(address: String,
                            accountManagerInitialSeed: Long,
                            mixedTransactionGeneratorInitialSeed: Long,
                            mockAPI: Boolean,
-                          ) extends MixerActor {
+                           numberOfInstancePerActor: Int) extends MixerActor {
 
   import SupervisorActor._
+
+  private val balanceMonitorActorName: String = "BalanceMonitorActor"
+  private val mixedTransactionGeneratorActorName: String = "MixedTransactionGeneratorActor"
+  private val validatorActorName: String = "ValidatorActor"
+  private val apiAccessActorName: String = "ApiAccessActor"
+  private val committerActorName: String = "CommitterActor"
+  private val ledgerActorName: String = "LedgerActor"
+  private val accountManagerActorName: String = "AccountManagerActor"
+  private val newRequestDispatcherActorName: String = " NewRequestDispatcherActor"
 
   override def receive: Receive = idle
 
   def idle: Receive = {
     case SupervisorActor =>
 
-      val balanceMonitorActor: ActorRef =
-        context.actorOf(BalanceMonitorActor.props)
+      val (balanceMonitorLoadBalancerActor, balanceMonitorActors) =
+        actorOfWithLoadBalancer(BalanceMonitorActor.props, balanceMonitorActorName)
 
-      val mixedTransactionGeneratorActor: ActorRef =
-        context.actorOf(
-          MixedTransactionGeneratorActor.props(
-            mixingProperties,
-            mixedTransactionGeneratorInitialSeed))
+      val (mixedTransactionGeneratorLoadBalancerActor, mixedTransactionGeneratorActors) =
+        actorOfWithLoadBalancer(MixedTransactionGeneratorActor.props(
+          mixingProperties,
+          mixedTransactionGeneratorInitialSeed), mixedTransactionGeneratorActorName)
 
-      val validatorActor: ActorRef =
-        context.actorOf(ValidatorActor.props)
+      val (validatorLoadBalancerActor, validatorActors) =
+        actorOfWithLoadBalancer(ValidatorActor.props, validatorActorName)
 
-      val apiAccessActor: ActorRef =
-        context.actorOf(if (mockAPI) MockAPIAccessActor.props else APIAccessActor.props)
+      val (apiAccessActorLoadBalancerActor, apiAccessActors) =
+        actorOfWithLoadBalancer(
+          if (mockAPI) MockAPIAccessActor.props else APIAccessActor.props,
+          apiAccessActorName)
 
-      val committerActor: ActorRef =
-        context.actorOf(CommitterActor.props(apiAccessActor = apiAccessActor))
+      val (committerLoadBalancerActor, committerActors) =
+        actorOfWithLoadBalancer(
+          CommitterActor.props(apiAccessActorLoadBalancerActor),
+          committerActorName)
 
       val ledgerActor: ActorRef =
         context.actorOf(LedgerActor.props(
-          subscribers = Seq(balanceMonitorActor, validatorActor),
-          apiAccessActor = apiAccessActor))
+          subscribers = balanceMonitorActors ++ validatorActors,
+          apiAccessActor = apiAccessActorLoadBalancerActor),
+          ledgerActorName)
 
-      val accountManagerActor: ActorRef =
-        context.actorOf(
+      val (accountManagerLoadBalancerActor, accountManagerActors) =
+        actorOfWithLoadBalancer(
           AccountManagerActor.props(
             address = address,
             mixingProperties = mixingProperties,
             initialSeed = accountManagerInitialSeed,
-            balanceMonitorActor = balanceMonitorActor,
-            mixedTransactionGeneratorActor = mixedTransactionGeneratorActor,
-            committerActor = committerActor,
-            validatorActor = validatorActor
-          )
+            balanceMonitorActor = balanceMonitorLoadBalancerActor,
+            mixedTransactionGeneratorActor = mixedTransactionGeneratorLoadBalancerActor,
+            committerActor = committerLoadBalancerActor,
+            validatorActor = validatorLoadBalancerActor
+          ), accountManagerActorName
         )
 
       val newRequestDispatcherActor: ActorRef =
-        context.actorOf(NewRequestDispatcherActor.props(accountManagerActor))
+        context.actorOf(NewRequestDispatcherActor.props(accountManagerLoadBalancerActor),
+          newRequestDispatcherActorName)
 
       val evaluationContext = context.system.dispatcher
+
       context.system.scheduler.schedule(
         initialDelay = delayBetweenMixing,
         interval = delayBetweenMixing,
-        receiver = accountManagerActor,
-        message = AccountManagerActor.ScheduleNewMixRequestTasks)(evaluationContext)
+        receiver = accountManagerLoadBalancerActor,
+        message = LoadBalancerActor.Broadcast(AccountManagerActor.ScheduleNewMixRequestTasks))(evaluationContext)
 
       context.system.scheduler.schedule(
         initialDelay = delayBetweenAllTransactionFetching,
@@ -74,31 +89,23 @@ case class SupervisorActor(address: String,
         receiver = ledgerActor,
         message = LedgerActor.FetchLatestLedger)(evaluationContext)
 
-      context.become(
-        worldStarted(
-          accountManagerActor = accountManagerActor,
-          balanceMonitorActor = balanceMonitorActor,
-          committerActor = committerActor,
-          validatorActor = validatorActor,
-          ledgerActor = ledgerActor,
-          apiAccessActor = apiAccessActor,
-          newRequestHandlerActor = newRequestDispatcherActor
-        )
-      )
+      context.become(worldStarted(newRequestHandlerActor = newRequestDispatcherActor))
   }
 
-  def worldStarted(accountManagerActor: ActorRef,
-                   balanceMonitorActor: ActorRef,
-                   committerActor: ActorRef,
-                   validatorActor: ActorRef,
-                   ledgerActor: ActorRef,
-                   apiAccessActor: ActorRef,
-                   newRequestHandlerActor: ActorRef): Receive = {
+  def worldStarted(newRequestHandlerActor: ActorRef): Receive = {
     case EndTheWorld =>
       context.children.foreach(_ ! PoisonPill)
       context.system.terminate()
     case newMixRequest: NewRequestDispatcherActor.NewRequests =>
       newRequestHandlerActor ! newMixRequest
+  }
+
+  def actorOfWithLoadBalancer(props: Props, name: String): (ActorRef, Seq[ActorRef]) = {
+    val (loadBalancerProps, children) = LoadBalancerActor.props(
+      props,
+      name,
+      numberOfInstancePerActor, context)
+    (context.actorOf(loadBalancerProps, name + "-LoadBalancer"), children)
   }
 }
 
@@ -110,7 +117,8 @@ object SupervisorActor {
             delayBetweenAllTransactionFetching: FiniteDuration,
             accountManagerInitialSeed: Long,
             mixedTransactionGeneratorInitialSeed: Long,
-            mockAPI: Boolean): Props =
+            mockAPI: Boolean,
+            numberOfInstancePerActor: Int): Props =
     Props(SupervisorActor(
       address = address,
       mixingProperties = mixingProperties,
@@ -118,7 +126,8 @@ object SupervisorActor {
       delayBetweenAllTransactionFetching = delayBetweenAllTransactionFetching,
       accountManagerInitialSeed = accountManagerInitialSeed,
       mixedTransactionGeneratorInitialSeed = mixedTransactionGeneratorInitialSeed,
-      mockAPI = mockAPI
+      mockAPI = mockAPI,
+      numberOfInstancePerActor
     ))
 
   case object StartTheWorld
