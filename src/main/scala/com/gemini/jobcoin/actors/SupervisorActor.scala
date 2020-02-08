@@ -101,6 +101,7 @@ case class SupervisorActor(address: String,
   }
 
   def actorOfWithLoadBalancer(props: Props, name: String): (ActorRef, Seq[ActorRef]) = {
+    require(numberOfInstancePerActor >= 1, "Number of actor instance should be at least 1")
     val (loadBalancerProps, children) = LoadBalancerActor.props(
       props,
       name,

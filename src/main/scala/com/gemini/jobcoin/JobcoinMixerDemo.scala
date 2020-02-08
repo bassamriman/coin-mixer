@@ -1,12 +1,11 @@
 package com.gemini.jobcoin
 
-import java.util.UUID
-
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.gemini.jobcoin.accounting.BasicTransaction
 import com.typesafe.config.ConfigFactory
 
-import scala.io.StdIn
+import scala.concurrent.ExecutionContext.Implicits._
 
 object JobcoinMixerDemo {
   object CompletedException extends Exception { }
@@ -18,11 +17,17 @@ object JobcoinMixerDemo {
 
     // Load Config
     val config = ConfigFactory.load()
+/*
+    // Test HTTP client
+     val client = new JobcoinClientDemo(config)
+     client.testGet().map(response => println(s"Response:\n$response"))
+*/
 
     // Test HTTP client
-    // val client = new JobcoinClient(config)
-    // client.testGet().map(response => println(s"Response:\n$response"))
-
+    val client = new JobcoinClient(config)
+    //client.getTransactions.map(response => println(s"Response:\n$response"))
+    client.postTransaction(BasicTransaction("Alice", "Bob", BigDecimal(1))).map(response => println(s"Response:\n$response"))
+/*
     try {
       while (true) {
         println(prompt)
@@ -43,6 +48,7 @@ object JobcoinMixerDemo {
     } finally {
       actorSystem.terminate()
     }
+    */
   }
 
   val prompt: String = "Please enter a comma-separated list of new, unused Jobcoin addresses where your mixed Jobcoins will be sent."
@@ -55,4 +61,5 @@ object JobcoinMixerDemo {
       |Usage:
       |    run return_addresses...
     """.stripMargin
+
 }

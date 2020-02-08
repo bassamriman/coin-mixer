@@ -1,36 +1,93 @@
 package com.gemini.jobcoin.common
 
-import scala.math.BigDecimal.RoundingMode
+import scala.annotation.tailrec
 import scala.util.Random
 
 object RandomNumberGenerator {
   def generateRandomIntBetween(min: Int, max: Int)(seed: Long): Int = {
     require(max > min, "max should be bigger then min")
-    min + new Random(seed).nextInt(max - min + 1)
+    require(min >= 0, "min should be bigger than zero")
+    require(max >= 0, "max should be bigger than zero")
+    val newSeed = new Random(seed).nextLong()
+    min + new Random(newSeed).nextInt(max - min)
   }
 
   def generateRandomBigDecimalBetween(min: BigDecimal, max: BigDecimal, maxScale: Int)(seed: Long): BigDecimal = {
-    require(max > min, "max should be bigger then min")
-    val scale = generateRandomIntBetween(0, maxScale)(seed)
-    val generatedBigdecimal = min + (BigDecimal(new Random(seed).nextDouble()) * (max - min))
-    generatedBigdecimal.setScale(scale, BigDecimal.RoundingMode.HALF_UP)
+    require(max >= min, "max should be bigger then min")
+    require(min >= 0, "min should be bigger than zero")
+    require(max >= 0, "max should be bigger than zero")
+    require(maxScale > 0, "maxScale should be bigger than zero")
+    val newSeed = new Random(seed).nextLong()
+    val scale = generateRandomIntBetween(0, maxScale)(newSeed)
+    val generatedBigDecimal = min + (BigDecimal(new Random(newSeed).nextDouble()) * (max - min))
+    generatedBigDecimal.setScale(scale, BigDecimal.RoundingMode.HALF_UP)
   }
 
   def generateRandomBigDecimals(sum: BigDecimal, min: BigDecimal, max: BigDecimal, maxScale: Int)(seed: Long): Seq[BigDecimal] = {
-    val numberOfNumbersToGenerate: Int = (sum / min).setScale(0, RoundingMode.UP).toInt
-    val generatedNumbers: Seq[BigDecimal] = 1 to numberOfNumbersToGenerate map (i => generateRandomBigDecimalBetween(min, max, maxScale)(seed + i))
-    val sumOfGeneratedNumbers: BigDecimal = generatedNumbers.sum
-    generatedNumbers.map(number => number / sumOfGeneratedNumbers * sum)
+    require(max >= min, "max should be bigger then min")
+    require(min >= 0, "min should be bigger than zero")
+    require(max >= 0, "max should be bigger than zero")
+    require(maxScale > 0, "maxScale should be bigger than zero")
+    require(sum >= 0, "max should be bigger than zero")
+    val newSeed = new Random(seed).nextLong()
+    combineUntilDesiredAccumulatedAmount(
+      accumulatedSum = BigDecimal(0),
+      generatedNumbers = Seq.empty,
+      desiredAmount = sum,
+      sumCombinator = (a : BigDecimal, b : BigDecimal) => a + b,
+      minusCombinator = (a : BigDecimal, b : BigDecimal) => a - b,
+      equalsPredicate = (a : BigDecimal, b : BigDecimal) => a == b,
+      superiorPredicate = (a : BigDecimal, b : BigDecimal) => a > b,
+      generateNumber = generateRandomBigDecimalBetween(min, max, maxScale))(newSeed)
   }
 
   def generateRandomInts(sum: Int, min: Int, max: Int)(seed: Long): Seq[Int] = {
-    val numberOfNumbersToGenerate: Int = sum / min
-    val generatedNumbers: Seq[Int] = 1 to numberOfNumbersToGenerate map (i => generateRandomIntBetween(min, max)(seed + i))
-    val sumOfGeneratedNumbers: Int = generatedNumbers.sum
-    val generatedNumberWithAdjustedSum: Seq[Int] = generatedNumbers.map(number => number / sumOfGeneratedNumbers * sum)
-    val sumOfGeneratedNumberWithAdjustedSum: Int = generatedNumberWithAdjustedSum.sum
-    val adjustment = sum - sumOfGeneratedNumberWithAdjustedSum
-    val adjustedTailOfGeneratedNumberWithAdjustedSum: Int = generatedNumberWithAdjustedSum.last + adjustment
-    generatedNumberWithAdjustedSum.dropRight(1) :+ adjustedTailOfGeneratedNumberWithAdjustedSum
+    require(max >= min, "max should be bigger then min")
+    require(min >= 0, "min should be bigger than zero")
+    require(max >= 0, "max should be bigger than zero")
+    require(sum >= 0, "max should be bigger than zero")
+    val newSeed = new Random(seed).nextLong()
+    combineUntilDesiredAccumulatedAmount(
+      accumulatedSum = 0,
+      generatedNumbers = Seq.empty,
+      desiredAmount = sum,
+      sumCombinator = (a : Int, b : Int) => a + b,
+      minusCombinator = (a : Int, b : Int) => a - b,
+      equalsPredicate = (a : Int, b : Int) => a == b,
+      superiorPredicate = (a : Int, b : Int) => a > b,
+      generateNumber = generateRandomIntBetween(min, max))(newSeed)
+  }
+
+
+  @tailrec
+  private def combineUntilDesiredAccumulatedAmount[T](accumulatedSum: T,
+                                                      generatedNumbers: Seq[T],
+                                                      desiredAmount: T,
+                                                      sumCombinator : (T,T) => T,
+                                                      minusCombinator : (T,T) => T,
+                                                      equalsPredicate : (T,T) => Boolean,
+                                                      superiorPredicate : (T,T) => Boolean,
+                                                      generateNumber : Long => T)(seed: Long): Seq[T] = {
+    if (equalsPredicate(accumulatedSum,desiredAmount)) {
+      generatedNumbers
+    } else {
+      val newNumber: T = generateNumber(seed + 1)
+      val newAccumulatedSum = sumCombinator(newNumber, accumulatedSum)
+      val (adjustedNewNumber,adjustedNewAccumulatedSum) =
+        if (superiorPredicate(newAccumulatedSum, desiredAmount)){
+          val adjustment = minusCombinator(newAccumulatedSum, desiredAmount)
+          (minusCombinator(newNumber,adjustment),
+            minusCombinator(newAccumulatedSum, adjustment))
+        } else (newNumber, newAccumulatedSum)
+      combineUntilDesiredAccumulatedAmount(
+        adjustedNewAccumulatedSum,
+        generatedNumbers :+ adjustedNewNumber,
+        desiredAmount,
+        sumCombinator,
+        minusCombinator,
+        equalsPredicate,
+        superiorPredicate,
+        generateNumber)(seed + 1)
+    }
   }
 }

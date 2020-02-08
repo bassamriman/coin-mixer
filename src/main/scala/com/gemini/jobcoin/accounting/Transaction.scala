@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 import com.gemini.jobcoin.common.{Identifiable, Timestampable}
+import play.api.libs.json.{Json, Writes}
 
 trait Transaction {
   val fromAddress: String
@@ -35,6 +36,9 @@ trait BasicTransactionDelegate extends Transaction {
 case class BasicTransaction(fromAddress: String,
                             toAddress: String,
                             amount: BigDecimal) extends Transaction
+object BasicTransaction{
+  implicit val jsonWrites: Writes[BasicTransaction] = Json.writes[BasicTransaction]
+}
 
 case class IdentifiableTransaction(basicTransaction: BasicTransaction, id: String)
   extends BasicTransactionDelegate

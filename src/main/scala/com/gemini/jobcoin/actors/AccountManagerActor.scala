@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.{MixRequest, MixRequestAccountManager, MixRequestTask, MixingProperties}
+import com.gemini.jobcoin.mixrequest.{MixRequest, MixRequestAccountManager, MixingProperties}
 
 case class AccountManagerActor(address: String,
                                mixingProperties: MixingProperties,
