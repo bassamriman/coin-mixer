@@ -127,7 +127,13 @@ case class MixRequestRegistry(
         mixRequestFSM.state match {
           case state: ReceivedBalance =>
             if (state.isIdle) {
-              val event: MixRequestEvent = Schedule(timestamp)
+              val event: MixRequestEvent =
+                ScheduleMixRequestTasks(
+                  Seq(
+                    state.mixRequest.sourceAddressToMixingAddressMixRequestTask
+                  ),
+                  timestamp
+                )
               val (newMixRequestFSM, newMixRequestTasks) =
                 mixRequestFSM.transition(event)
               Some((mixRequestFSM, newMixRequestFSM, newMixRequestTasks))
@@ -166,7 +172,7 @@ case class MixRequestRegistry(
             val mixRequestFSM: MixRequestFSM =
               keyToMixRequestFSM(mixRequestState.id)
             val event: MixRequestEvent =
-              ScheduleMixRequestTask(mixRequestTasks, timestamp)
+              ScheduleMixRequestTasks(mixRequestTasks, timestamp)
             val (newMixRequestFSM, newMixRequestTasks) =
               mixRequestFSM.transition(event)
             (mixRequestFSM, newMixRequestFSM, newMixRequestTasks)
@@ -185,6 +191,72 @@ case class MixRequestRegistry(
 
   }
 
+  def commitMixRequestTasks(
+    mixRequestTasks: Seq[MixRequestTask],
+    timestamp: LocalDateTime
+  ): (MixRequestRegistry, Seq[MixRequestTask]) =
+    transitionMixRequestTasksState(
+      mixRequestTasks,
+      timestamp,
+      CommitMixRequestTasks
+    )
+
+  def resetMixRequestTasks(
+    mixRequestTasks: Seq[MixRequestTask],
+    timestamp: LocalDateTime
+  ): (MixRequestRegistry, Seq[MixRequestTask]) =
+    transitionMixRequestTasksState(
+      mixRequestTasks,
+      timestamp,
+      ResetMixRequestTasks
+    )
+
+  def completeMixRequestTasks(
+    mixRequestTasks: Seq[MixRequestTask],
+    timestamp: LocalDateTime
+  ): (MixRequestRegistry, Seq[MixRequestTask]) = transitionMixRequestTasksState(
+    mixRequestTasks,
+    timestamp,
+    CompleteMixRequestTasks
+  )
+
+  def getAllBalanceTransferredToMixingAddressMixRequestStates
+    : Seq[BalanceTransferredToMixingAddress] = {
+    sortedMixRequestsFSMByInitiatedTime
+      .flatMap(
+        mixRequestFSM =>
+          mixRequestFSM.state match {
+            case s: BalanceTransferredToMixingAddress => Some(s)
+            case _                                    => None
+        }
+      )
+      .toSeq
+  }
+
+  private def transitionMixRequestTasksState(
+    mixRequestTasks: Seq[MixRequestTask],
+    timestamp: LocalDateTime,
+    eventConstructor: (Seq[MixRequestTask], LocalDateTime) => MixRequestEvent,
+  ): (MixRequestRegistry, Seq[MixRequestTask]) = {
+    val mixRequestIdToMixRequestTasks: Map[String, Seq[MixRequestTask]] =
+      mixRequestTasks.groupBy(mixRequestTask => mixRequestTask.mixRequestId)
+    val result = mixRequestIdToMixRequestTasks.map {
+      mixRequestIdMixRequestTasksPair =>
+        val (mixRequestId, mixRequestTasks) = mixRequestIdMixRequestTasksPair
+        val mixRequestFSM: MixRequestFSM =
+          keyToMixRequestFSM(mixRequestId)
+        val event: MixRequestEvent =
+          eventConstructor(mixRequestTasks, timestamp)
+        val (newMixRequestFSM, newMixRequestTasks) =
+          mixRequestFSM.transition(event)
+        (mixRequestFSM, newMixRequestFSM, newMixRequestTasks)
+    }.toSeq
+    updateMixRequestFSM(
+      mixRequestFSMsToRemove = result.map(_._1),
+      mixRequestFSMsToAdd = result.map(_._2)
+    ) -> result.flatMap(_._3)
+  }
+
   def updateMixRequestFSM(
     mixRequestFSMsToRemove: Seq[MixRequestFSM],
     mixRequestFSMsToAdd: Seq[MixRequestFSM]
@@ -201,21 +273,6 @@ case class MixRequestRegistry(
         newSortedMixRequestsFSMByInitiatedTime
     )
   }
-
-  def commitMixRequestTask(
-    mixRequestTasks: Seq[MixRequestTask],
-    timestamp: LocalDateTime
-  ): (MixRequestRegistry, Seq[MixRequestTask]) = ???
-
-  def rollBackToScheduling(
-    mixRequestTasks: Seq[MixRequestTask],
-    timestamp: LocalDateTime
-  ): (MixRequestRegistry, Seq[MixRequestTask]) = ???
-
-  def completeMixRequestTask(
-    mixRequestTasks: Seq[MixRequestTask],
-    timestamp: LocalDateTime
-  ): (MixRequestRegistry, Seq[MixRequestTask]) = ???
 
   private def scheduleMixRequestTasksUntilNumberIsMet(
     mixRequestMixingStates: List[Mixing],
@@ -241,7 +298,7 @@ case class MixRequestRegistry(
       remainingMixRequestMixingStates match {
         case mixRequestMixingState :: newRemainingMixRequestMixingStates =>
           val idleMixRequestTask =
-            mixRequestMixingState.mixRequest.idlePricingTasks()
+            mixRequestMixingState.mixRequest.idleMixRequestTasks()
           val potentialNewNumberOfRemainingMixRequestTask = numberOfRemainingMixRequestTasks - idleMixRequestTask.size
 
           val (adjustedIdleMixRequestTask, newNumberOfRemainingMixRequestTask) =
@@ -268,7 +325,7 @@ case class MixRequestRegistry(
 object MixRequestRegistry {
   def empty(mixingProperties: MixingProperties): MixRequestRegistry =
     MixRequestRegistry(
-      Map.empty(MixRequestFSMOrdering),
+      Map.empty,
       TreeSet.empty[MixRequestFSM](MixRequestFSMOrdering),
       mixingProperties
     )

@@ -2,7 +2,7 @@ package com.gemini.jobcoin.mixrequest
 
 import java.time.LocalDateTime
 
-import com.gemini.jobcoin.accounting.MixingAccount
+import com.gemini.jobcoin.accounting.{IdentifiableTransaction, MixingAccount}
 
 case class MixRequestAccountManager(mixingAccount: MixingAccount,
                                     mixRequestRegistry: MixRequestRegistry) {
@@ -27,6 +27,17 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
   ): (MixRequestAccountManager, Seq[MixRequestTask]) = {
     val (newMixRequestRegistry, mixRequestTasks) =
       mixRequestRegistry.balanceNotReceived(mixRequest, timestamp)
+    this.copy(mixRequestRegistry = newMixRequestRegistry) -> mixRequestTasks
+  }
+
+  def startMixing(
+    mixRequestTransactionsPairs: Seq[
+      (MixRequestWithBalance, Seq[IdentifiableTransaction])
+    ],
+    timestamp: LocalDateTime
+  ): (MixRequestAccountManager, Seq[MixRequestTask]) = {
+    val (newMixRequestRegistry, mixRequestTasks) =
+      mixRequestRegistry.startMixing(mixRequestTransactionsPairs, timestamp)
     this.copy(mixRequestRegistry = newMixRequestRegistry) -> mixRequestTasks
   }
 
@@ -55,7 +66,7 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
     timestamp: LocalDateTime
   ): MixRequestAccountManager = {
     val (newMixRequestRegistry, _) =
-      mixRequestRegistry.completeMixRequestTask(mixRequestTasks, timestamp)
+      mixRequestRegistry.completeMixRequestTasks(mixRequestTasks, timestamp)
     val newMixingAccount =
       mixingAccount.addCompletedMixRequestTasks(mixRequestTasks)
     this.copy(
@@ -69,7 +80,7 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
     timestamp: LocalDateTime
   ): (MixRequestAccountManager, Seq[MixRequestTask]) = {
     val (newMixRequestRegistry, newMixRequestTasks) =
-      mixRequestRegistry.commitMixRequestTask(mixRequestTasks, timestamp)
+      mixRequestRegistry.commitMixRequestTasks(mixRequestTasks, timestamp)
     (this.copy(mixRequestRegistry = newMixRequestRegistry), newMixRequestTasks)
   }
 
@@ -78,7 +89,7 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
     timestamp: LocalDateTime
   ): (MixRequestAccountManager, Seq[MixRequestTask]) = {
     val (newMixRequestRegistry, newMixRequestTasks) =
-      mixRequestRegistry.commitMixRequestTask(mixRequestTasks, timestamp)
+      mixRequestRegistry.commitMixRequestTasks(mixRequestTasks, timestamp)
     (this.copy(mixRequestRegistry = newMixRequestRegistry), newMixRequestTasks)
   }
 }

@@ -1,5 +1,7 @@
 package com.gemini.jobcoin.actors
 
+import java.time.LocalDateTime
+
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
@@ -8,7 +10,7 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
 
   import CommitterActor._
 
-  override def receive: Receive = handle(Map.empty, Map.empty)
+  override def receive: Receive = logged(handle(Map.empty, Map.empty))
 
   def handle(transactionAwaitingConfirmation: Map[String, MixRequestTask],
              mixRequestTaskToSender: Map[String, ActorRef]): Receive = {
@@ -20,11 +22,13 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
       val newTransactionAwaitingConfirmation: Map[String, MixRequestTask] =
         transactionAwaitingConfirmation + (mixRequestTask.transaction.id -> mixRequestTask)
       val newMixRequestTaskToSender: Map[String, ActorRef] =
-        mixRequestTaskToSender + (mixRequestTask.transaction.id -> sender)
+        mixRequestTaskToSender + (mixRequestTask.id -> sender)
       context.become(
-        handle(
-          transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          mixRequestTaskToSender = newMixRequestTaskToSender
+        logged(
+          handle(
+            transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
+            mixRequestTaskToSender = newMixRequestTaskToSender
+          )
         )
       )
 
@@ -38,12 +42,14 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
 
       val sender = mixRequestTaskToSender(correspondingMixRequestTask.id)
 
-      sender ! Committed(Seq(correspondingMixRequestTask))
+      sender ! Committed(Seq(correspondingMixRequestTask), LocalDateTime.now())
 
       context.become(
-        handle(
-          transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          mixRequestTaskToSender = newMixRequestTaskToSender
+        logged(
+          handle(
+            transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
+            mixRequestTaskToSender = newMixRequestTaskToSender
+          )
         )
       )
     case APIAccessActor.CommitFailed(transaction, error) =>
@@ -57,12 +63,17 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
 
       val sender = mixRequestTaskToSender(correspondingMixRequestTask.id)
 
-      sender ! FailedToCommit(Seq(correspondingMixRequestTask))
+      sender ! FailedToCommit(
+        Seq(correspondingMixRequestTask),
+        LocalDateTime.now()
+      )
 
       context.become(
-        handle(
-          transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          mixRequestTaskToSender = newMixRequestTaskToSender
+        logged(
+          handle(
+            transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
+            mixRequestTaskToSender = newMixRequestTaskToSender
+          )
         )
       )
 
@@ -75,7 +86,9 @@ object CommitterActor {
 
   case class Commit(mixRequestTask: MixRequestTask)
 
-  case class Committed(mixRequestTasks: Seq[MixRequestTask])
-  case class FailedToCommit(mixRequestTasks: Seq[MixRequestTask])
+  case class Committed(mixRequestTasks: Seq[MixRequestTask],
+                       timestamp: LocalDateTime)
+  case class FailedToCommit(mixRequestTasks: Seq[MixRequestTask],
+                            timestamp: LocalDateTime)
 
 }

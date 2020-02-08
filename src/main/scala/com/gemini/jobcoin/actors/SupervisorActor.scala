@@ -33,12 +33,12 @@ case class SupervisorActor(
   private val ledgerActorName: String = "LedgerActor"
   private val accountManagerActorName: String = "AccountManagerActor"
   private val newRequestDispatcherActorName: String =
-    " NewRequestDispatcherActor"
+    "NewRequestDispatcherActor"
 
-  override def receive: Receive = idle
+  override def receive: Receive = logged(idle)
 
   def idle: Receive = {
-    case SupervisorActor =>
+    case SupervisorActor.StartTheWorld =>
       val (balanceMonitorLoadBalancerActor, balanceMonitorActors) =
         actorOfWithLoadBalancer(
           BalanceMonitorActor.props,
@@ -122,7 +122,7 @@ case class SupervisorActor(
       )(evaluationContext)
 
       context.become(
-        worldStarted(newRequestHandlerActor = newRequestDispatcherActor)
+        logged(worldStarted(newRequestHandlerActor = newRequestDispatcherActor))
       )
   }
 

@@ -7,7 +7,8 @@ trait Account {
   val startingBalance: BigDecimal
   val currentBalance: BigDecimal
   val ledger: IdentifiableTransactionLedger
-
+  def +(transaction: IdentifiableTransaction): StandardAccount
+  def ++(transactions: Seq[IdentifiableTransaction]): StandardAccount
 }
 
 case class StandardAccount(address: String,
@@ -15,6 +16,20 @@ case class StandardAccount(address: String,
                            ledger: IdentifiableTransactionLedger)
     extends Account {
   val currentBalance: BigDecimal = startingBalance + ledger.balance(address)
+
+  def +(transaction: IdentifiableTransaction): StandardAccount =
+    this.copy(ledger = ledger + transaction)
+  def ++(transactions: Seq[IdentifiableTransaction]): StandardAccount = {
+    this.copy(ledger = ledger ++ transactions)
+  }
+
+  def -(transaction: IdentifiableTransaction): StandardAccount =
+    this.copy(ledger = ledger - transaction)
+
+  def --(transactions: Seq[IdentifiableTransaction]): StandardAccount =
+    this.copy(
+      ledger = ledger -- transactions.filter(_.involvesAddress(address))
+    )
 }
 
 object StandardAccount {
@@ -23,25 +38,51 @@ object StandardAccount {
 }
 
 case class ReservableBalanceAccount(address: String,
-                                    account: Account,
-                                    reservedBalanceAccount: Account)
-    extends Account {
+                                    account: StandardAccount,
+                                    reservedBalanceAccount: StandardAccount) {
   val startingBalance
-    : BigDecimal = account.startingBalance - reservedBalanceAccount.startingBalance
+    : BigDecimal = account.startingBalance + reservedBalanceAccount.startingBalance
   val currentBalance
-    : BigDecimal = account.currentBalance - reservedBalanceAccount.currentBalance
-  val reservedBalance: BigDecimal = reservedBalanceAccount.currentBalance
+    : BigDecimal = account.currentBalance + reservedBalanceAccount.currentBalance
+  val reservedBalance: BigDecimal = -reservedBalanceAccount.currentBalance
 
   val ledger
     : IdentifiableTransactionLedger = account.ledger + reservedBalanceAccount.ledger
 
   def allocatedAmount(
     transactions: Seq[IdentifiableTransaction]
-  ): ReservableBalanceAccount = ???
+  ): (ReservableBalanceAccount, Seq[IdentifiableTransaction]) = {
+    val sendingTransactions: Seq[IdentifiableTransaction] =
+      transactions
+        .flatMap(
+          t =>
+            t.basicTransaction
+              .forcePositiveBalance(address)
+              .map(
+                adjustedTransaction =>
+                  t.copy(basicTransaction = adjustedTransaction)
+            )
+        )
+        .filter(_.isSendingAddress(address))
+
+    this.copy(
+      reservedBalanceAccount = reservedBalanceAccount ++ sendingTransactions
+    ) ->
+      sendingTransactions
+
+  }
 
   def commitTransactions(
     transactions: Seq[IdentifiableTransaction]
-  ): ReservableBalanceAccount = ???
+  ): (ReservableBalanceAccount, Seq[IdentifiableTransaction]) = {
+    val newReservedBalanceAccount
+      : StandardAccount = reservedBalanceAccount -- transactions
+    val newAccount: StandardAccount = account ++ transactions
+    this.copy(
+      account = newAccount,
+      reservedBalanceAccount = newReservedBalanceAccount
+    ) -> transactions
+  }
 
 }
 
@@ -56,8 +97,7 @@ object ReservableBalanceAccount {
 
 case class MixingAccount(reservedBalanceAccount: ReservableBalanceAccount,
                          scheduledMixRequestTask: Map[String, MixRequestTask],
-                         completeMixRequestTask: Map[String, MixRequestTask])
-    extends Account {
+                         completedMixRequestTask: Map[String, MixRequestTask]) {
 
   val address: String = reservedBalanceAccount.address
   val startingBalance: BigDecimal = reservedBalanceAccount.startingBalance
@@ -66,20 +106,64 @@ case class MixingAccount(reservedBalanceAccount: ReservableBalanceAccount,
   val reservedBalance: BigDecimal = reservedBalanceAccount.reservedBalance
 
   def balanceAvailableForWithdrawal(balance: BigDecimal): Boolean =
-    balance >= currentBalance
+    balance <= currentBalance
 
   def fundAvailableForMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask]
-  ): Boolean =
-    balanceAvailableForWithdrawal(mixRequestTasks.map(_.transaction.amount).sum)
+  ): Boolean = {
+    val sendingMixRequestTask =
+      mixRequestTasks.filter(mrt => mrt.transaction.isSendingAddress(address))
+    balanceAvailableForWithdrawal(
+      sendingMixRequestTask.map(_.transaction.amount).sum
+    )
+  }
 
   def addScheduledMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask]
-  ): MixingAccount = ???
+  ): MixingAccount = {
+    val (newReservedBalanceAccount, allocatedTransactions) =
+      reservedBalanceAccount.allocatedAmount(mixRequestTasks.map(_.transaction))
+    val indexAllocatedTransactions =
+      allocatedTransactions.map(t => t.id -> t).toMap
+    val newScheduledMixRequestTask
+      : Map[String, MixRequestTask] = scheduledMixRequestTask ++
+      mixRequestTasks
+        .map(mixRequestTask => mixRequestTask.id -> mixRequestTask)
+        .filter(
+          entry => indexAllocatedTransactions.contains(entry._2.transaction.id)
+        )
+    this.copy(
+      reservedBalanceAccount = newReservedBalanceAccount,
+      scheduledMixRequestTask = newScheduledMixRequestTask
+    )
+  }
 
   def addCompletedMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask]
-  ): MixingAccount = ???
+  ): MixingAccount = {
+    val (newReservedBalanceAccount, completedTransaction) =
+      reservedBalanceAccount.commitTransactions(
+        mixRequestTasks.map(_.transaction)
+      )
+    val indexedCompletedTransactions: Map[String, IdentifiableTransaction] =
+      completedTransaction.map(t => t.id -> t).toMap
+
+    val newCompletedMixRequestTask
+      : Map[String, MixRequestTask] = scheduledMixRequestTask ++
+      mixRequestTasks
+        .map(mixRequestTask => mixRequestTask.id -> mixRequestTask)
+        .filter(
+          entry =>
+            indexedCompletedTransactions.contains(entry._2.transaction.id)
+        )
+
+    val newScheduledMixRequestTask = scheduledMixRequestTask -- newCompletedMixRequestTask.keys
+    this.copy(
+      reservedBalanceAccount = newReservedBalanceAccount,
+      scheduledMixRequestTask = newScheduledMixRequestTask,
+      completedMixRequestTask = newCompletedMixRequestTask
+    )
+  }
 }
 
 object MixingAccount {

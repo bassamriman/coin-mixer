@@ -1,5 +1,7 @@
 package com.gemini.jobcoin.actors
 
+import java.time.LocalDateTime
+
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
@@ -8,7 +10,7 @@ case class ValidatorActor() extends MixerActor {
 
   import ValidatorActor._
 
-  override def receive: Receive = handle(Map.empty, Map.empty)
+  override def receive: Receive = logged(handle(Map.empty, Map.empty))
 
   def handle(mixRequestTaskToValidate: Map[String, MixRequestTask],
              mixRequestTaskIdToSender: Map[String, ActorRef]): Receive = {
@@ -23,9 +25,11 @@ case class ValidatorActor() extends MixerActor {
           mixRequestTask => mixRequestTask.id -> sender
         )
       context.become(
-        handle(
-          mixRequestTaskToValidate = newMixRequestTaskToValidate,
-          mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+        logged(
+          handle(
+            mixRequestTaskToValidate = newMixRequestTaskToValidate,
+            mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+          )
         )
       )
 
@@ -55,13 +59,15 @@ case class ValidatorActor() extends MixerActor {
 
       groupedSenderToMixRequestTasks.foreach { groupedSenderToMixRequestTask =>
         val (sender, mixRequestTasks) = groupedSenderToMixRequestTask
-        sender ! Validated(mixRequestTasks)
+        sender ! Validated(mixRequestTasks, LocalDateTime.now())
       }
 
       context.become(
-        handle(
-          mixRequestTaskToValidate = newMixRequestTaskToValidate,
-          mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+        logged(
+          handle(
+            mixRequestTaskToValidate = newMixRequestTaskToValidate,
+            mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+          )
         )
       )
   }
@@ -73,6 +79,7 @@ object ValidatorActor {
 
   case class Validate(mixRequestTasks: Seq[MixRequestTask])
 
-  case class Validated(mixRequestTasks: Seq[MixRequestTask])
+  case class Validated(mixRequestTasks: Seq[MixRequestTask],
+                       timestamp: LocalDateTime)
 
 }

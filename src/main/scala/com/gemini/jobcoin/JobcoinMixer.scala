@@ -27,26 +27,27 @@ object JobcoinMixer {
     val mixingAddress: String = UUID.randomUUID().toString
     val mixingProperties =
       MixingProperties(
-        minTransactionPerDestinationAddress = 10,
-        maxTransactionPerDestinationAddress = 20,
+        minTransactionPerDestinationAddress = 1,
+        maxTransactionPerDestinationAddress = 12,
         minTransactionAmount = BigDecimal(0),
         maxTransactionAmount = BigDecimal(10),
         maxScale = 3,
-        numberOfMixRequestTaskToSchedule = 10
+        numberOfMixRequestTaskToSchedule = 1
       )
 
     val supervisorActor: ActorRef = actorSystem.actorOf(
       SupervisorActor.props(
         address = mixingAddress,
         mixingProperties = mixingProperties,
-        delayBetweenMixing = 10 seconds,
-        delayBetweenAllTransactionFetching = 10 seconds,
+        delayBetweenMixing = 1 seconds,
+        delayBetweenAllTransactionFetching = 1 seconds,
         accountManagerInitialSeed = 13,
         mixedTransactionGeneratorInitialSeed = 20,
-        mockAPI = true,
+        mockAPI = false,
         numberOfInstancePerActor = 1,
-        apiClientConfig = config
-      )
+        apiClientConfig = config,
+      ),
+      "Supervisor"
     )
 
     supervisorActor ! SupervisorActor.StartTheWorld

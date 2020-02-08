@@ -9,7 +9,7 @@ case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef)
 
   import LedgerActor._
 
-  override def receive: Receive = handle
+  override def receive: Receive = logged(handle)
 
   def handle: Receive = {
     case FetchLatestLedger => apiAccessActor ! APIAccessActor.GetAllTransactions

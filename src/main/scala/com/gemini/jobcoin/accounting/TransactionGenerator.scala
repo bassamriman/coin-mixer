@@ -9,12 +9,11 @@ object TransactionGenerator {
     amountToDistribute: BigDecimal,
     sourceAddress: String,
     destinationAddresses: Seq[String],
-    minTransactionPerDestinationAddress: Int,
-    maxTransactionPerDestinationAddress: Int,
     minTransactionAmount: BigDecimal,
     maxTransactionAmount: BigDecimal,
     maxScale: Int
   )(seed: Long): Seq[IdentifiableTransaction] = {
+
     val transactionAmounts: Seq[BigDecimal] =
       RandomNumberGenerator.generateRandomBigDecimals(
         amountToDistribute,
@@ -22,11 +21,12 @@ object TransactionGenerator {
         maxTransactionAmount,
         maxScale
       )(seed)
+
     val distributions: Seq[Int] = RandomNumberGenerator.generateRandomInts(
       transactionAmounts.size,
-      minTransactionPerDestinationAddress,
-      maxTransactionPerDestinationAddress
+      destinationAddresses.size
     )(seed)
+
     val accountToNumberOfTransactionPairs
       : Seq[(String, Int)] = destinationAddresses zip distributions
 
@@ -46,6 +46,7 @@ object TransactionGenerator {
     transactions: Seq[IdentifiableTransaction],
     sourceAddress: String
   ): Seq[IdentifiableTransaction] = {
+
     accountToNumberOfTransactionPairs match {
       case accountToNumberOfTransaction :: remainingAccountToNumberOfTransactionPairs =>
         val (destinationAddress, numberOfTransaction) =

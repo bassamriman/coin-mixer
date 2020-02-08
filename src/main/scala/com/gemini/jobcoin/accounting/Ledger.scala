@@ -18,16 +18,10 @@ trait Ledger[T <: Transaction, Self <: Ledger[T, Self]] {
   def +(other: Self): Self =
     constructor(this.transactions ++ other.transactions)
 
-  def +(transaction: T): Self = constructor(transactions :+ transaction)
+  def +(transaction: T): Self = this ++ Seq(transaction)
+  def ++(transactions: Seq[T]): Self = constructor(transactions ++ transactions)
 
   def constructor(transactions: Seq[T]): Self
-}
-
-trait BasicLedgerDelegate {
-  val transactions: Seq[BasicTransactionDelegate]
-
-  def toBasicLedger: BasicLedger =
-    BasicLedger(transactions.map(_.basicTransaction))
 }
 
 case class BasicLedger(transactions: Seq[BasicTransaction])
@@ -37,20 +31,43 @@ case class BasicLedger(transactions: Seq[BasicTransaction])
 }
 
 case class IdentifiableTransactionLedger(
-  transactions: Seq[IdentifiableTransaction]
-) extends Ledger[IdentifiableTransaction, IdentifiableTransactionLedger]
-    with BasicLedgerDelegate {
+  indexedTransactions: Map[String, IdentifiableTransaction]
+) extends Ledger[IdentifiableTransaction, IdentifiableTransactionLedger] {
+
+  override val transactions: Seq[IdentifiableTransaction] =
+    indexedTransactions.values.toSeq
+
   override def constructor(
     transactions: Seq[IdentifiableTransaction]
-  ): IdentifiableTransactionLedger = IdentifiableTransactionLedger(transactions)
+  ): IdentifiableTransactionLedger =
+    IdentifiableTransactionLedger(transactions.map(t => t.id -> t).toMap)
 
   def addressInfo(address: String): StandardAccount = {
     val addressRelatedTransactions: Seq[IdentifiableTransaction] =
       transactions.filter(_.involvesAddress(address))
     StandardAccount(address, 0, constructor(addressRelatedTransactions))
   }
-}
 
+  def toBasicLedger: BasicLedger =
+    BasicLedger(transactions.map(_.basicTransaction))
+  def -(transaction: IdentifiableTransaction): IdentifiableTransactionLedger =
+    this -- Seq(transaction)
+  def --(
+    transactions: Seq[IdentifiableTransaction]
+  ): IdentifiableTransactionLedger =
+    this.copy(
+      indexedTransactions = indexedTransactions -- transactions.map(_.id)
+    )
+
+  override def ++(
+    transactions: Seq[IdentifiableTransaction]
+  ): IdentifiableTransactionLedger = this.copy(
+    indexedTransactions = indexedTransactions ++ transactions
+      .map(t => t.id -> t)
+  )
+
+}
+/*
 case class TimestampedTransactionLedger(
   transactions: Seq[TimestampableTransaction]
 ) extends Ledger[TimestampableTransaction, TimestampedTransactionLedger]
@@ -60,13 +77,13 @@ case class TimestampedTransactionLedger(
   ): TimestampedTransactionLedger = TimestampedTransactionLedger(transactions)
 
 }
-
+ */
 object Ledger {
   def empty: BasicLedger = BasicLedger(Seq.empty)
-
+  /*
   def emptyTimestampedTransactionLedger: TimestampedTransactionLedger =
     TimestampedTransactionLedger(Seq.empty)
-
+   */
   def emptyIdentifiableTransactionLedger: IdentifiableTransactionLedger =
-    IdentifiableTransactionLedger(Seq.empty)
+    IdentifiableTransactionLedger(Map.empty)
 }

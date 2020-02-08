@@ -10,37 +10,38 @@ case class BalanceMonitorActor() extends MixerActor {
 
   import BalanceMonitorActor._
 
-  override def receive: Receive = handle(Map.empty, Map.empty)
+  override def receive: Receive = logged(handle(Map.empty, Map.empty))
 
-  def handle(requestAwaitingBalance: Map[String, MixRequest],
+  def handle(requestsAwaitingBalance: Map[String, MixRequest],
              mixRequestIdToSender: Map[String, ActorRef]): Receive = {
     case NewRequestsAwaitingBalance(mixRequests) =>
       val sender = context.sender()
-      val newRequestAwaitingBalance = requestAwaitingBalance ++ mixRequests.map(
-        mixRequest => mixRequest.id -> mixRequest
-      )
+      val newRequestAwaitingBalance = requestsAwaitingBalance ++ mixRequests
+        .map(mixRequest => mixRequest.id -> mixRequest)
       val newMixRequestIdToSender = mixRequestIdToSender ++ mixRequests.map(
         mixRequest => mixRequest.id -> sender
       )
       context.become(
-        handle(
-          requestAwaitingBalance = newRequestAwaitingBalance,
-          mixRequestIdToSender = newMixRequestIdToSender
+        logged(
+          handle(
+            requestsAwaitingBalance = newRequestAwaitingBalance,
+            mixRequestIdToSender = newMixRequestIdToSender
+          )
         )
       )
     case LedgerActor.LatestLedger(newLedger) =>
       //TODO: Make this more efficient. Loop through all transactions once for multiple address
       val mixRequestIdToBalance: Map[String, BigDecimal] =
-        requestAwaitingBalance
+        requestsAwaitingBalance
           .mapValues(
             mixRequest => newLedger.receivedAmount(mixRequest.sourceAddress)
           )
-          .filter(_._2 == 0)
+          .filter(_._2 != 0)
       val mixRequestsBalancePairs: Seq[(MixRequest, BigDecimal)] =
         mixRequestIdToBalance.toSeq.flatMap(
-          entry => requestAwaitingBalance.get(entry._1).map(_ -> entry._2)
+          entry => requestsAwaitingBalance.get(entry._1).map(_ -> entry._2)
         )
-      val newRequestAwaitingBalance = requestAwaitingBalance -- mixRequestIdToBalance.keys
+      val newRequestAwaitingBalance = requestsAwaitingBalance -- mixRequestIdToBalance.keys
       val newMixRequestIdToSender = mixRequestIdToSender -- mixRequestIdToBalance.keys
 
       val groupedMixRequestsBalancePairs
@@ -59,9 +60,11 @@ case class BalanceMonitorActor() extends MixerActor {
       }
 
       context.become(
-        handle(
-          requestAwaitingBalance = newRequestAwaitingBalance,
-          mixRequestIdToSender = newMixRequestIdToSender
+        logged(
+          handle(
+            requestsAwaitingBalance = newRequestAwaitingBalance,
+            mixRequestIdToSender = newMixRequestIdToSender
+          )
         )
       )
   }

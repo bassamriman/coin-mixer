@@ -11,70 +11,118 @@ case class MixRequestTask(id: String,
                           mixRequestId: String,
                           transaction: IdentifiableTransaction,
                           state: MixRequestTaskState,
-                          eventHistory: Seq[MixRequestTaskEvent]) extends Identifiable {
-  def reset(timestamp: LocalDateTime): MixRequestTask =
-    this.copy(state = Idle, eventHistory = eventHistory :+ Reset(state, timestamp))
+                          eventHistory: Seq[MixRequestTaskEvent])
+    extends Identifiable {
 
-  def nextState(timestamp: LocalDateTime): MixRequestTask = {
-    val from: MixRequestTaskState = state.nextState()
-    val to: MixRequestTaskState = state.nextState()
-    this.copy(
-      state = state.nextState(),
-      eventHistory = eventHistory :+ NextStateTransition(from = from, to = to, timestamp = timestamp))
-  }
+  val isIdle: Boolean = state == MixRequestTaskState.Idle
+  val isScheduled: Boolean = state == MixRequestTaskState.Scheduled
+  val isCompleted: Boolean = state == MixRequestTaskState.Completed
+
+  def transition(event: MixRequestTaskEvent): MixRequestTask =
+    MixRequestTask.transition(this, event)
+
 }
 
 object MixRequestTask {
-  def apply(mixRequestId: String, transaction: IdentifiableTransaction): MixRequestTask =
+  def apply(mixRequestId: String,
+            transaction: IdentifiableTransaction): MixRequestTask =
     MixRequestTask(
       id = UUID.randomUUID().toString,
       mixRequestId = mixRequestId,
       transaction = transaction,
-      state = Idle,
-      eventHistory = Seq.empty)
+      state = MixRequestTaskState.Idle,
+      eventHistory = Seq.empty
+    )
 
-  def many(mixRequestId: String, transactions: Seq[IdentifiableTransaction]): Seq[MixRequestTask] =
+  def many(mixRequestId: String,
+           transactions: Seq[IdentifiableTransaction]): Seq[MixRequestTask] =
     transactions.map(mixrequest.MixRequestTask(mixRequestId, _))
+
+  def transition(mixRequestTask: MixRequestTask,
+                 event: MixRequestTaskEvent): MixRequestTask = {
+    mixRequestTask.state match {
+      case s: MixRequestTaskState.Idle.type =>
+        event match {
+          case e: MixRequestTaskEvent.Schedule =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Scheduled,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case e: MixRequestTaskEvent.Reset =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Idle,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case otherEvent =>
+            throw eventNotSupportedByStateException(otherEvent, s)
+        }
+      case s: MixRequestTaskState.Scheduled.type =>
+        event match {
+          case e: MixRequestTaskEvent.Commit =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Committed,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case e: MixRequestTaskEvent.Reset =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Idle,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case otherEvent =>
+            throw eventNotSupportedByStateException(otherEvent, s)
+        }
+      case s: MixRequestTaskState.Committed.type =>
+        event match {
+          case e: MixRequestTaskEvent.Complete =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Completed,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case e: MixRequestTaskEvent.Reset =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Idle,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case otherEvent =>
+            throw eventNotSupportedByStateException(otherEvent, s)
+        }
+      case s: MixRequestTaskState.Completed.type =>
+        event match {
+          case e: MixRequestTaskEvent.Reset =>
+            mixRequestTask.copy(
+              state = MixRequestTaskState.Idle,
+              eventHistory = mixRequestTask.eventHistory :+ e
+            )
+          case otherEvent =>
+            throw eventNotSupportedByStateException(otherEvent, s)
+        }
+    }
+  }
+
+  def eventNotSupportedByStateException(
+    event: MixRequestTaskEvent,
+    state: MixRequestTaskState
+  ): IllegalArgumentException =
+    new IllegalArgumentException(s"State=$state doesn't support event=$event")
 }
 
-trait MixRequestTaskEvent {
-  val id: String
+sealed trait MixRequestTaskEvent {
   val timestamp: LocalDateTime
 }
-
-case class Reset(from: MixRequestTaskState, id: String, timestamp: LocalDateTime) extends MixRequestTaskEvent
-
-object Reset {
-  def apply(from: MixRequestTaskState, timestamp: LocalDateTime): Reset =
-    Reset(from, UUID.randomUUID().toString, timestamp)
+object MixRequestTaskEvent {
+  case class Reset(timestamp: LocalDateTime) extends MixRequestTaskEvent
+  case class Schedule(timestamp: LocalDateTime) extends MixRequestTaskEvent
+  case class Commit(timestamp: LocalDateTime) extends MixRequestTaskEvent
+  case class Complete(timestamp: LocalDateTime) extends MixRequestTaskEvent
 }
 
-case class NextStateTransition(from: MixRequestTaskState,
-                               to: MixRequestTaskState,
-                               id: String,
-                               timestamp: LocalDateTime) extends MixRequestTaskEvent
+sealed trait MixRequestTaskState
+object MixRequestTaskState {
+  case object Idle extends MixRequestTaskState
 
-object NextStateTransition {
-  def apply(from: MixRequestTaskState, to: MixRequestTaskState, timestamp: LocalDateTime): NextStateTransition =
-    NextStateTransition(from, to, UUID.randomUUID().toString, timestamp)
-}
+  case object Scheduled extends MixRequestTaskState
 
-sealed trait MixRequestTaskState {
-  def nextState(): MixRequestTaskState
-}
+  case object Committed extends MixRequestTaskState
 
-object Idle extends MixRequestTaskState {
-  override def nextState(): MixRequestTaskState = Scheduled
-}
-
-object Scheduled extends MixRequestTaskState {
-  override def nextState(): MixRequestTaskState = Committed
-}
-
-object Committed extends MixRequestTaskState {
-  override def nextState(): MixRequestTaskState = Completed
-}
-
-object Completed extends MixRequestTaskState {
-  override def nextState(): MixRequestTaskState = Completed
+  case object Completed extends MixRequestTaskState
 }

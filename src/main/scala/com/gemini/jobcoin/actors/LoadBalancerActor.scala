@@ -10,20 +10,20 @@ case class LoadBalancerActor(actorProps: Props,
 
   import LoadBalancerActor._
 
-  override def receive: Receive = handle(children)
+  override def receive: Receive = logged(handle(children))
 
   def handle(currentChildren: List[ActorRef]): Receive = {
     case Broadcast(msg) =>
-      children.foreach(_ ! msg)
+      children.foreach(child => child ! msg)
     case msg =>
       currentChildren match {
         case currentChild :: remainingChildren =>
           currentChild.forward(msg)
-          context.become(handle(remainingChildren))
+          context.become(logged(handle(remainingChildren)))
         case Nil =>
           val currentChild :: remainingChildren = children
           currentChild.forward(msg)
-          context.become(handle(remainingChildren))
+          context.become(logged(handle(remainingChildren)))
       }
   }
 }

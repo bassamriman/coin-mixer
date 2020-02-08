@@ -4,13 +4,9 @@ import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.{
-  MixRequest,
-  MixRequestAccountManager,
-  MixingProperties
-}
+import com.gemini.jobcoin.mixrequest._
 
-case class AccountManagerActor(address: String,
+case class AccountManagerActor(mixingAddress: String,
                                mixingProperties: MixingProperties,
                                initialSeed: Long,
                                balanceMonitorActor: ActorRef,
@@ -22,18 +18,20 @@ case class AccountManagerActor(address: String,
   import AccountManagerActor._
 
   override def receive: Receive =
-    handle(
-      MixRequestAccountManager.empty(address, mixingProperties),
-      initialSeed
+    logged(
+      handle(
+        MixRequestAccountManager.empty(mixingAddress, mixingProperties),
+        initialSeed
+      )
     )
 
   def handle(mixRequestAccountManager: MixRequestAccountManager,
              seed: Long): Receive = {
     case NewRequestDispatcherActor
           .NewRequests(mixRequestCoordinates, timestamp) =>
-      val newMixRequests = mixRequestCoordinates.map(
+      val newMixRequests: Seq[MixRequest] = mixRequestCoordinates.map(
         mixRequestCoordinate =>
-          MixRequest(address, timestamp, mixRequestCoordinate)
+          MixRequest(mixingAddress, timestamp, mixRequestCoordinate)
       )
       balanceMonitorActor ! BalanceMonitorActor.NewRequestsAwaitingBalance(
         newMixRequests
@@ -41,9 +39,11 @@ case class AccountManagerActor(address: String,
       val newMixRequestAccountManager =
         mixRequestAccountManager.registerNewMixRequest(newMixRequests)
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
 
@@ -55,9 +55,11 @@ case class AccountManagerActor(address: String,
           timestamp
         )
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
 
@@ -65,9 +67,29 @@ case class AccountManagerActor(address: String,
       val (newMixRequestAccountManager, _) =
         mixRequestAccountManager.balanceNotReceived(mixRequests, timestamp)
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
+        )
+      )
+
+    case MixedTransactionGeneratorActor.MixedTransactions(
+        mixRequestTransactionsPairs,
+        timestamp: LocalDateTime
+        ) =>
+      val (newMixRequestAccountManager, _) =
+        mixRequestAccountManager.startMixing(
+          mixRequestTransactionsPairs,
+          timestamp
+        )
+      context.become(
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
 
@@ -80,51 +102,72 @@ case class AccountManagerActor(address: String,
         committerActor ! CommitterActor.Commit(_)
       )
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed + 1
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed + 1
+          )
         )
       )
 
-    case CommitterActor.Committed(mixRequestTask) =>
+    case CommitterActor.Committed(mixRequestTask, timestamp) =>
       val (newMixRequestAccountManager, scheduledMixRequestTasks) =
         mixRequestAccountManager.commitMixRequestTasks(
           mixRequestTask,
-          LocalDateTime.now()
+          timestamp
         )
       validatorActor ! ValidatorActor.Validate(scheduledMixRequestTasks)
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
 
-    case CommitterActor.FailedToCommit(mixRequestTask) =>
+    case CommitterActor.FailedToCommit(mixRequestTask, timestamp) =>
       val (newMixRequestAccountManager, _) =
-        mixRequestAccountManager.rollBackToScheduling(
-          mixRequestTask,
-          LocalDateTime.now()
-        )
+        mixRequestAccountManager.rollBackToScheduling(mixRequestTask, timestamp)
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
 
-    case ValidatorActor.Validated(mixRequestTask) =>
+    case ValidatorActor.Validated(mixRequestTask, timestamp) =>
       val newMixRequestAccountManager =
         mixRequestAccountManager.completeMixRequestTasks(
           mixRequestTask,
-          LocalDateTime.now()
+          timestamp
         )
+
+      val balanceTransferredToMixingAddressMixRequests
+        : Seq[MixRequestWithBalance] =
+        newMixRequestAccountManager.mixRequestRegistry.getAllBalanceTransferredToMixingAddressMixRequestStates
+          .map(_.mixRequest)
+
+      if (balanceTransferredToMixingAddressMixRequests.nonEmpty) {
+        mixedTransactionGeneratorActor !
+          MixedTransactionGeneratorActor.GenerateMixedTransactions(
+            mixingAddress,
+            balanceTransferredToMixingAddressMixRequests
+          )
+      }
+
       context.become(
-        handle(
-          mixRequestAccountManager = newMixRequestAccountManager,
-          seed = seed
+        logged(
+          handle(
+            mixRequestAccountManager = newMixRequestAccountManager,
+            seed = seed
+          )
         )
       )
+    case AccountManagerActor.GetStatus =>
+      sender() ! AccountManagerActor.Status(mixRequestAccountManager)
   }
 
 }
@@ -139,7 +182,7 @@ object AccountManagerActor {
             validatorActor: ActorRef): Props =
     Props(
       AccountManagerActor(
-        address = address,
+        mixingAddress = address,
         mixingProperties = mixingProperties,
         initialSeed = initialSeed,
         balanceMonitorActor = balanceMonitorActor,
@@ -150,5 +193,8 @@ object AccountManagerActor {
     )
 
   case object ScheduleNewMixRequestTasks
+
+  case object GetStatus
+  case class Status(mixRequestAccountManager: MixRequestAccountManager)
 
 }

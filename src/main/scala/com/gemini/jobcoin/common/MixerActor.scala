@@ -3,8 +3,25 @@ package com.gemini.jobcoin.common
 import akka.actor.{Actor, ActorLogging}
 
 trait MixerActor extends Actor with ActorLogging {
-//  override protected def aroundReceive(receive: Receive, msg: Any): Unit = {
-//    log.info(s"Actor: ${self.path.name} received message: $msg")
-//    super.aroundReceive(receive, msg)
-//  }
+
+  def logged[A, Unit](
+    pf1: PartialFunction[A, Unit]
+  ): PartialFunction[A, Unit] = {
+    val logPF: PartialFunction[A, A] = {
+      case msg =>
+        val actorName: String = context.self.path.name
+        val sender: String = context.sender().path.name
+        log.info(s"From: $sender || To: $actorName || Msg: $msg")
+        msg
+
+    }
+    andThenPartial(logPF, pf1)
+  }
+
+  private def andThenPartial[A, B, C](
+    pf1: PartialFunction[A, B],
+    pf2: PartialFunction[B, C]
+  ): PartialFunction[A, C] = {
+    Function.unlift(pf1.lift(_) flatMap pf2.lift)
+  }
 }

@@ -15,6 +15,8 @@ trait Transaction {
   def involvesAddress(address: String): Boolean =
     fromAddress == address || toAddress == address
 
+  def isReceivingAddress(address: String): Boolean = address == toAddress
+  def isSendingAddress(address: String): Boolean = address == fromAddress
   def signAdjustAmount(address: String): Option[BigDecimal] =
     if (fromAddress == address && toAddress == address) {
       Some(BigDecimal(0))
@@ -37,7 +39,23 @@ trait BasicTransactionDelegate extends Transaction {
 case class BasicTransaction(fromAddress: String,
                             toAddress: String,
                             amount: BigDecimal)
-    extends Transaction
+    extends Transaction {
+
+  def inverseSign: BasicTransaction =
+    BasicTransaction(toAddress, fromAddress, -amount)
+
+  def forcePositiveBalance(address: String): Option[BasicTransaction] = {
+    if (fromAddress == address || toAddress == address) {
+      if (amount < 0) {
+        Some(this.inverseSign)
+      } else {
+        Some(this)
+      }
+    } else {
+      None
+    }
+  }
+}
 object BasicTransaction {
   implicit val jsonWrites: Writes[BasicTransaction] =
     Json.writes[BasicTransaction]

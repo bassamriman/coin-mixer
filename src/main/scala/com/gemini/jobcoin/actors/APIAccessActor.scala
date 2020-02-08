@@ -11,7 +11,7 @@ case class APIAccessActor(client: JobcoinClient) extends MixerActor {
   import akka.pattern.pipe
   import context.dispatcher
 
-  override def receive: Receive = handle
+  override def receive: Receive = logged(handle)
 
   def handle: Receive = {
     case GetAllTransactions =>

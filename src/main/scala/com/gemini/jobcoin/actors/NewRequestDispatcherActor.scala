@@ -11,7 +11,7 @@ case class NewRequestDispatcherActor(newRequestHandler: ActorRef)
 
   import NewRequestDispatcherActor._
 
-  override def receive: Receive = handle
+  override def receive: Receive = logged(handle)
 
   def handle: Receive = {
     case msg: NewRequests =>

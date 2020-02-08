@@ -49,11 +49,28 @@ object RandomNumberGenerator {
     )(newSeed)
   }
 
+  def generateRandomInts(sum: Int, numberOfInts: Int)(seed: Long): Seq[Int] = {
+    require(sum > 0, "sum should be bigger than zero")
+    val newSeed = new Random(seed).nextLong()
+    val ints: Seq[Int] =
+      (1 to numberOfInts).map(
+        i => new Random(new Random(newSeed + i).nextLong()).nextInt(2 * sum)
+      )
+    val sumOfInt: Int = ints.sum
+    val normalizingRatio: Double = sum.toDouble / sumOfInt.toDouble
+    val normalizedInts: Seq[Int] = ints.map(_ * normalizingRatio).map(_.toInt)
+    val sumOfNormalizedInt: Int = normalizedInts.sum
+    val adjustment: Int = sum - sumOfNormalizedInt
+    //TODO: Add adjustment to a random int in the int seq
+    val adjustFirstInt = normalizedInts.headOption.map(_ + adjustment)
+    adjustFirstInt.map(_ +: normalizedInts.tail).getOrElse(Seq.empty)
+  }
+
   def generateRandomInts(sum: Int, min: Int, max: Int)(seed: Long): Seq[Int] = {
     require(max >= min, "max should be bigger then min")
     require(min >= 0, "min should be bigger than zero")
     require(max >= 0, "max should be bigger than zero")
-    require(sum >= 0, "max should be bigger than zero")
+    require(sum >= 0, "sum should be bigger than zero")
     val newSeed = new Random(seed).nextLong()
     combineUntilDesiredAccumulatedAmount(
       accumulatedSum = 0,
