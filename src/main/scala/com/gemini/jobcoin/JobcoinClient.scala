@@ -15,38 +15,69 @@ import scala.async.Async._
 import scala.concurrent.ExecutionContext.Implicits._
 import scala.concurrent.Future
 
-class JobcoinClient(config: Config)(implicit materializer: Materializer) {
-  private val wsClient = StandaloneAhcWSClient()
-
-  def getTransactions: Future[Seq[TransactionDAO]] = async {
-    val response = await {
-      wsClient
-        .url("https://jobcoin.gemini.com/blast-isolating/api/transactions")
-        .get()
-    }
-
-    response
-      .body[JsValue]
-      .validate[Seq[TransactionDAO]]
-      .get
-  }
-
-  def postTransaction(transaction : BasicTransaction): Future[Option[String]] = async {
-    await {
-      wsClient
-        .url("https://jobcoin.gemini.com/blast-isolating/api/transactions")
-        .addHttpHeaders("Content-Type" -> "application/json", "Accept" -> "application/json")
-        .post(Json.toJson(transaction))
-        .map{
-          response =>
-            response.status match {
-              case 200 => None
-              case _ => Some(response.body)
-            }
-        }
-    }
-  }
-
+trait JobcoinClient {
+  def getTransactions: Future[Seq[BasicTransaction]]
+  def postTransaction(transaction: BasicTransaction): Future[Option[String]]
 }
 
+class JobcoinClientImpl(config: Config)(implicit materializer: Materializer)
+    extends JobcoinClient {
+  private val wsClient = StandaloneAhcWSClient()
+  private val url =
+    "https://jobcoin.gemini.com/blast-isolating/api/transactions"
 
+  def getTransactions: Future[Seq[BasicTransaction]] =
+    async {
+      val response = await {
+        wsClient
+          .url(url)
+          .get()
+      }
+
+      response
+        .body[JsValue]
+        .validate[Seq[TransactionDAO]]
+        .get
+    }.map(_.map(BasicTransaction.apply))
+
+  def postTransaction(transaction: BasicTransaction): Future[Option[String]] =
+    async {
+      await {
+        wsClient
+          .url(url)
+          .addHttpHeaders(
+            "Content-Type" -> "application/json",
+            "Accept" -> "application/json"
+          )
+          .post(Json.toJson(transaction))
+          .map { response =>
+            response.status match {
+              case 200 => None
+              case _   => Some(response.body)
+            }
+          }
+      }
+    }
+}
+
+object JobcoinClient {
+  def apply(config: Config)(
+    implicit materializer: Materializer
+  ): JobcoinClient = new JobcoinClientImpl(config)
+  def mock(): JobcoinClient = new MockJobcoinClient()
+}
+
+class MockJobcoinClient() extends JobcoinClient {
+  private val transactions = collection.mutable.MutableList.empty
+
+  override def getTransactions: Future[Seq[BasicTransaction]] = async {
+    transactions
+  }
+
+  override def postTransaction(
+    transaction: BasicTransaction
+  ): Future[Option[String]] = async {
+    transactions :+ transaction
+    None
+  }
+}

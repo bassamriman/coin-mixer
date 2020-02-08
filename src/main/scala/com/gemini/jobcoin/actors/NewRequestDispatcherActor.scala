@@ -6,7 +6,8 @@ import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestCoordinate
 
-case class NewRequestDispatcherActor(newRequestHandler: ActorRef) extends MixerActor {
+case class NewRequestDispatcherActor(newRequestHandler: ActorRef)
+    extends MixerActor {
 
   import NewRequestDispatcherActor._
 
@@ -20,8 +21,10 @@ case class NewRequestDispatcherActor(newRequestHandler: ActorRef) extends MixerA
 }
 
 object NewRequestDispatcherActor {
-  def props(newRequestHandler: ActorRef): Props = Props(NewRequestDispatcherActor(newRequestHandler))
+  def props(newRequestHandler: ActorRef): Props =
+    Props(NewRequestDispatcherActor(newRequestHandler))
 
-  case class NewRequests(mixRequestCoordinates: Seq[MixRequestCoordinate], timestamp: LocalDateTime)
+  case class NewRequests(mixRequestCoordinates: Seq[MixRequestCoordinate],
+                         timestamp: LocalDateTime)
 
 }

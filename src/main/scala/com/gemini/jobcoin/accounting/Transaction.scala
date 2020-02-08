@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 import com.gemini.jobcoin.common.{Identifiable, Timestampable}
+import com.gemini.jobcoin.dao.TransactionDAO
 import play.api.libs.json.{Json, Writes}
 
 trait Transaction {
@@ -35,18 +36,28 @@ trait BasicTransactionDelegate extends Transaction {
 
 case class BasicTransaction(fromAddress: String,
                             toAddress: String,
-                            amount: BigDecimal) extends Transaction
-object BasicTransaction{
-  implicit val jsonWrites: Writes[BasicTransaction] = Json.writes[BasicTransaction]
+                            amount: BigDecimal)
+    extends Transaction
+object BasicTransaction {
+  implicit val jsonWrites: Writes[BasicTransaction] =
+    Json.writes[BasicTransaction]
+  def apply(transaction: TransactionDAO): BasicTransaction =
+    BasicTransaction(
+      fromAddress = transaction.fromAddress.getOrElse(""),
+      toAddress = transaction.toAddress,
+      amount = transaction.amount
+    )
 }
 
-case class IdentifiableTransaction(basicTransaction: BasicTransaction, id: String)
-  extends BasicTransactionDelegate
+case class IdentifiableTransaction(basicTransaction: BasicTransaction,
+                                   id: String)
+    extends BasicTransactionDelegate
     with Transaction
     with Identifiable
 
-case class TimestampableTransaction(timestamp: LocalDateTime, basicTransaction: BasicTransaction)
-  extends BasicTransactionDelegate
+case class TimestampableTransaction(timestamp: LocalDateTime,
+                                    basicTransaction: BasicTransaction)
+    extends BasicTransactionDelegate
     with Transaction
     with Timestampable
 
@@ -54,24 +65,45 @@ object Transaction {
   def apply(fromAddress: String,
             toAddress: String,
             amount: BigDecimal): BasicTransaction =
-    BasicTransaction(fromAddress = fromAddress, toAddress = toAddress, amount = amount)
+    BasicTransaction(
+      fromAddress = fromAddress,
+      toAddress = toAddress,
+      amount = amount
+    )
 
   def withId(id: String,
              fromAddress: String,
              toAddress: String,
              amount: BigDecimal): IdentifiableTransaction =
-    IdentifiableTransaction(Transaction(fromAddress = fromAddress, toAddress = toAddress, amount = amount), id)
+    IdentifiableTransaction(
+      Transaction(
+        fromAddress = fromAddress,
+        toAddress = toAddress,
+        amount = amount
+      ),
+      id
+    )
 
   def withId(fromAddress: String,
              toAddress: String,
              amount: BigDecimal): IdentifiableTransaction =
-    withId(UUID.randomUUID.toString, fromAddress = fromAddress, toAddress = toAddress, amount = amount)
+    withId(
+      UUID.randomUUID.toString,
+      fromAddress = fromAddress,
+      toAddress = toAddress,
+      amount = amount
+    )
 
   def withTimestamp(timestamp: LocalDateTime,
                     fromAddress: String,
                     toAddress: String,
                     amount: BigDecimal): TimestampableTransaction =
-    TimestampableTransaction(timestamp, Transaction(fromAddress = fromAddress, toAddress = toAddress, amount = amount))
+    TimestampableTransaction(
+      timestamp,
+      Transaction(
+        fromAddress = fromAddress,
+        toAddress = toAddress,
+        amount = amount
+      )
+    )
 }
-
-

@@ -1,49 +1,43 @@
 package com.gemini.jobcoin.actors
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.Props
+import com.gemini.jobcoin.JobcoinClient
 import com.gemini.jobcoin.accounting._
 import com.gemini.jobcoin.common.MixerActor
 
-case class MockAPIAccessActor() extends MixerActor {
+case class APIAccessActor(client: JobcoinClient) extends MixerActor {
 
   import APIAccessActor._
+  import akka.pattern.pipe
+  import context.dispatcher
 
-  override def receive: Receive = handle(Ledger.emptyIdentifiableTransactionLedger)
+  override def receive: Receive = handle
 
-  def handle(ledger: IdentifiableTransactionLedger): Receive = {
-    case GetAllTransactions => sender() ! LatestLedger(ledger)
-    case GetAddressInfo(address) =>
-      sender() ! AddressInfo(ledger.addressInfo(address))
+  def handle: Receive = {
+    case GetAllTransactions =>
+      client.getTransactions
+        .map(transactions => AllTransactionsLedger(BasicLedger(transactions)))
+        .pipeTo(self)(sender())
     case CommitTransaction(transaction) =>
-      val sender: ActorRef = context.sender
-      self ! StoredConfirmationWithOriginalSender(sender, StoredConfirmation(transaction))
-      context.become(handle(ledger + transaction))
-    case confirmation: StoredConfirmationWithOriginalSender =>
-      confirmation.sender ! confirmation.storedConfirmation
+      client
+        .postTransaction(transaction.basicTransaction)
+        .map {
+          case Some(error) => CommitFailed(transaction, error)
+          case None        => CommitSuccess(transaction)
+        }
+        .pipeTo(self)(sender())
+    case response: AllTransactionsLedger =>
+      sender() ! response
+    case response: CommitSuccess =>
+      sender() ! response
+    case response: CommitFailed =>
+      sender() ! response
   }
-}
-
-case class APIAccessActor() extends MixerActor {
-
-  import APIAccessActor._
-
-  override def receive: Receive = handle(Ledger.empty)
-
-  def handle(ledger: BasicLedger): Receive = {
-    case GetAllTransactions => ???
-    case GetAddressInfo(address) => ???
-    case CommitTransaction(transaction) => ???
-    case confirmation: StoredConfirmationWithOriginalSender => confirmation.sender ! confirmation.storedConfirmation
-  }
-}
-
-object MockAPIAccessActor {
-  def props: Props = Props(MockAPIAccessActor())
 }
 
 object APIAccessActor {
 
-  def props: Props = Props(APIAccessActor())
+  def props(client: JobcoinClient): Props = Props(APIAccessActor(client))
 
   case object GetAllTransactions
 
@@ -51,12 +45,9 @@ object APIAccessActor {
 
   case class CommitTransaction(transaction: IdentifiableTransaction)
 
-  case class LatestLedger(ledger: IdentifiableTransactionLedger)
+  case class AllTransactionsLedger(ledger: BasicLedger)
 
-  case class AddressInfo(account: Account)
+  case class CommitFailed(transaction: IdentifiableTransaction, error: String)
 
-  case class StoredConfirmation(transaction: IdentifiableTransaction)
-
-  case class StoredConfirmationWithOriginalSender(sender: ActorRef, storedConfirmation: StoredConfirmation)
-
+  case class CommitSuccess(transaction: IdentifiableTransaction)
 }

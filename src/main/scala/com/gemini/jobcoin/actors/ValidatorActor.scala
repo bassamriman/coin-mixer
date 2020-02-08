@@ -15,36 +15,55 @@ case class ValidatorActor() extends MixerActor {
     case Validate(mixRequestTasks) =>
       val sender = context.sender()
       val newMixRequestTaskToValidate =
-        mixRequestTaskToValidate ++ mixRequestTasks.map(mixRequestTask => mixRequestTask.id -> mixRequestTask)
+        mixRequestTaskToValidate ++ mixRequestTasks.map(
+          mixRequestTask => mixRequestTask.id -> mixRequestTask
+        )
       val newMixRequestTaskIdToSender: Map[String, ActorRef] =
-        mixRequestTaskIdToSender ++ mixRequestTasks.map(mixRequestTask => mixRequestTask.id -> sender)
+        mixRequestTaskIdToSender ++ mixRequestTasks.map(
+          mixRequestTask => mixRequestTask.id -> sender
+        )
       context.become(
         handle(
           mixRequestTaskToValidate = newMixRequestTaskToValidate,
-          mixRequestTaskIdToSender = newMixRequestTaskIdToSender))
+          mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+        )
+      )
 
     case LedgerActor.LatestLedger(newLedger) =>
       //TODO: Make this more efficient. Loop through all transactions once for multiple mix request
       val presentMixRequestTaskIds: Seq[String] = mixRequestTaskToValidate
-        .mapValues(mixRequestTask => newLedger.exist(mixRequestTask.transaction))
-        .filter(_._2).keys.toSeq
+        .mapValues(
+          mixRequestTask =>
+            newLedger.exist(mixRequestTask.transaction.basicTransaction)
+        )
+        .filter(_._2)
+        .keys
+        .toSeq
       val presentMixRequestTasks: Seq[MixRequestTask] =
-        presentMixRequestTaskIds.flatMap(presentMixRequestTaskId => mixRequestTaskToValidate.get(presentMixRequestTaskId))
+        presentMixRequestTaskIds.flatMap(
+          presentMixRequestTaskId =>
+            mixRequestTaskToValidate.get(presentMixRequestTaskId)
+        )
       val newMixRequestTaskToValidate = mixRequestTaskToValidate -- presentMixRequestTaskIds
       val newMixRequestTaskIdToSender = mixRequestTaskIdToSender -- presentMixRequestTaskIds
 
       val groupedSenderToMixRequestTasks =
-        presentMixRequestTasks.groupBy(presentMixRequestTask => mixRequestTaskIdToSender(presentMixRequestTask.id))
+        presentMixRequestTasks.groupBy(
+          presentMixRequestTask =>
+            mixRequestTaskIdToSender(presentMixRequestTask.id)
+        )
 
-      groupedSenderToMixRequestTasks.foreach {
-        groupedSenderToMixRequestTask =>
-          val (sender, mixRequestTasks) = groupedSenderToMixRequestTask
-          sender ! Validated(mixRequestTasks)
+      groupedSenderToMixRequestTasks.foreach { groupedSenderToMixRequestTask =>
+        val (sender, mixRequestTasks) = groupedSenderToMixRequestTask
+        sender ! Validated(mixRequestTasks)
       }
 
-      context.become(handle(
-        mixRequestTaskToValidate = newMixRequestTaskToValidate,
-        mixRequestTaskIdToSender = newMixRequestTaskIdToSender))
+      context.become(
+        handle(
+          mixRequestTaskToValidate = newMixRequestTaskToValidate,
+          mixRequestTaskIdToSender = newMixRequestTaskIdToSender
+        )
+      )
   }
 
 }

@@ -8,7 +8,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.ExecutionContext.Implicits._
 
 object JobcoinMixerDemo {
-  object CompletedException extends Exception { }
+  object CompletedException extends Exception {}
 
   def main(args: Array[String]): Unit = {
     // Create an actor system
@@ -17,17 +17,19 @@ object JobcoinMixerDemo {
 
     // Load Config
     val config = ConfigFactory.load()
-/*
+    /*
     // Test HTTP client
      val client = new JobcoinClientDemo(config)
      client.testGet().map(response => println(s"Response:\n$response"))
-*/
+     */
 
     // Test HTTP client
-    val client = new JobcoinClient(config)
+    val client = JobcoinClient(config)
     //client.getTransactions.map(response => println(s"Response:\n$response"))
-    client.postTransaction(BasicTransaction("Alice", "Bob", BigDecimal(1))).map(response => println(s"Response:\n$response"))
-/*
+    client
+      .postTransaction(BasicTransaction("Alice", "Bob", BigDecimal(1)))
+      .map(response => println(s"Response:\n$response"))
+    /*
     try {
       while (true) {
         println(prompt)
@@ -48,10 +50,11 @@ object JobcoinMixerDemo {
     } finally {
       actorSystem.terminate()
     }
-    */
+   */
   }
 
-  val prompt: String = "Please enter a comma-separated list of new, unused Jobcoin addresses where your mixed Jobcoins will be sent."
+  val prompt: String =
+    "Please enter a comma-separated list of new, unused Jobcoin addresses where your mixed Jobcoins will be sent."
   val helpText: String =
     """
       |Jobcoin Mixer

@@ -1,10 +1,11 @@
 package com.gemini.jobcoin.actors
 
 import akka.actor.{ActorRef, Props}
-import com.gemini.jobcoin.accounting.IdentifiableTransactionLedger
+import com.gemini.jobcoin.accounting.BasicLedger
 import com.gemini.jobcoin.common.MixerActor
 
-case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef) extends MixerActor {
+case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef)
+    extends MixerActor {
 
   import LedgerActor._
 
@@ -12,7 +13,7 @@ case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef) ext
 
   def handle: Receive = {
     case FetchLatestLedger => apiAccessActor ! APIAccessActor.GetAllTransactions
-    case APIAccessActor.LatestLedger(newLedger) =>
+    case APIAccessActor.AllTransactionsLedger(newLedger) =>
       subscribers.foreach(_ ! LatestLedger(newLedger))
   }
 }
@@ -25,6 +26,6 @@ object LedgerActor {
 
   case object FetchLatestLedger
 
-  case class LatestLedger(ledger: IdentifiableTransactionLedger)
+  case class LatestLedger(ledger: BasicLedger)
 
 }

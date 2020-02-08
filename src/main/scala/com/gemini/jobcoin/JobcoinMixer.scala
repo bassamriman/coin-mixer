@@ -21,7 +21,6 @@ object JobcoinMixer {
     implicit val actorSystem = ActorSystem()
     implicit val materializer = ActorMaterializer()
 
-
     // Load Config
     val config = ConfigFactory.load()
 
@@ -45,8 +44,10 @@ object JobcoinMixer {
         accountManagerInitialSeed = 13,
         mixedTransactionGeneratorInitialSeed = 20,
         mockAPI = true,
-        1
-      ))
+        numberOfInstancePerActor = 1,
+        apiClientConfig = config
+      )
+    )
 
     supervisorActor ! SupervisorActor.StartTheWorld
 
@@ -63,8 +64,13 @@ object JobcoinMixer {
         } else {
           val depositAddress = UUID.randomUUID()
           val now = LocalDateTime.now()
-          supervisorActor ! NewRequestDispatcherActor.NewRequests(Seq(MixRequestCoordinate(depositAddress.toString, addresses)), now)
-          println(s"You may now send Jobcoins to address $depositAddress. They will be mixed and sent to your destination addresses.")
+          supervisorActor ! NewRequestDispatcherActor.NewRequests(
+            Seq(MixRequestCoordinate(depositAddress.toString, addresses)),
+            now
+          )
+          println(
+            s"You may now send Jobcoins to address $depositAddress. They will be mixed and sent to your destination addresses."
+          )
         }
       }
     } catch {
@@ -74,7 +80,8 @@ object JobcoinMixer {
     }
   }
 
-  val prompt: String = "Please enter a comma-separated list of new, unused Jobcoin addresses where your mixed Jobcoins will be sent."
+  val prompt: String =
+    "Please enter a comma-separated list of new, unused Jobcoin addresses where your mixed Jobcoins will be sent."
   val helpText: String =
     """
       |Jobcoin Mixer

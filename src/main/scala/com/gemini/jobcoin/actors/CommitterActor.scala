@@ -14,21 +14,26 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
              mixRequestTaskToSender: Map[String, ActorRef]): Receive = {
     case Commit(mixRequestTask) =>
       val sender = context.sender()
-      apiAccessActor ! APIAccessActor.CommitTransaction(mixRequestTask.transaction)
-      val newTransactionAwaitingConfirmation =
+      apiAccessActor ! APIAccessActor.CommitTransaction(
+        mixRequestTask.transaction
+      )
+      val newTransactionAwaitingConfirmation: Map[String, MixRequestTask] =
         transactionAwaitingConfirmation + (mixRequestTask.transaction.id -> mixRequestTask)
-      val newMixRequestTaskToSender =
+      val newMixRequestTaskToSender: Map[String, ActorRef] =
         mixRequestTaskToSender + (mixRequestTask.transaction.id -> sender)
       context.become(
         handle(
           transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          mixRequestTaskToSender = newMixRequestTaskToSender))
+          mixRequestTaskToSender = newMixRequestTaskToSender
+        )
+      )
 
-    case APIAccessActor.StoredConfirmation(transaction) =>
-      val correspondingMixRequestTask = transactionAwaitingConfirmation(transaction.id)
-      val newTransactionAwaitingConfirmation =
+    case APIAccessActor.CommitSuccess(transaction) =>
+      val correspondingMixRequestTask: MixRequestTask =
+        transactionAwaitingConfirmation(transaction.id)
+      val newTransactionAwaitingConfirmation: Map[String, MixRequestTask] =
         transactionAwaitingConfirmation - transaction.id
-      val newMixRequestTaskToSender =
+      val newMixRequestTaskToSender: Map[String, ActorRef] =
         mixRequestTaskToSender - correspondingMixRequestTask.id
 
       val sender = mixRequestTaskToSender(correspondingMixRequestTask.id)
@@ -38,16 +43,39 @@ case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {
       context.become(
         handle(
           transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
-          mixRequestTaskToSender = newMixRequestTaskToSender))
+          mixRequestTaskToSender = newMixRequestTaskToSender
+        )
+      )
+    case APIAccessActor.CommitFailed(transaction, error) =>
+      log.error(s"Failed to commit with following: $error")
+      val correspondingMixRequestTask: MixRequestTask =
+        transactionAwaitingConfirmation(transaction.id)
+      val newTransactionAwaitingConfirmation: Map[String, MixRequestTask] =
+        transactionAwaitingConfirmation - transaction.id
+      val newMixRequestTaskToSender: Map[String, ActorRef] =
+        mixRequestTaskToSender - correspondingMixRequestTask.id
+
+      val sender = mixRequestTaskToSender(correspondingMixRequestTask.id)
+
+      sender ! FailedToCommit(Seq(correspondingMixRequestTask))
+
+      context.become(
+        handle(
+          transactionAwaitingConfirmation = newTransactionAwaitingConfirmation,
+          mixRequestTaskToSender = newMixRequestTaskToSender
+        )
+      )
 
   }
 }
 
 object CommitterActor {
-  def props(apiAccessActor: ActorRef): Props = Props(CommitterActor(apiAccessActor))
+  def props(apiAccessActor: ActorRef): Props =
+    Props(CommitterActor(apiAccessActor))
 
   case class Commit(mixRequestTask: MixRequestTask)
 
   case class Committed(mixRequestTasks: Seq[MixRequestTask])
+  case class FailedToCommit(mixRequestTasks: Seq[MixRequestTask])
 
 }

@@ -3,7 +3,10 @@ package com.gemini.jobcoin.actors
 import akka.actor.{ActorContext, ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 
-case class LoadBalancerActor(actorProps: Props, name: String, children: List[ActorRef]) extends MixerActor {
+case class LoadBalancerActor(actorProps: Props,
+                             name: String,
+                             children: List[ActorRef])
+    extends MixerActor {
 
   import LoadBalancerActor._
 
@@ -26,12 +29,16 @@ case class LoadBalancerActor(actorProps: Props, name: String, children: List[Act
 }
 
 object LoadBalancerActor {
-  def props(actorProps: Props, name: String, numberOfInstances: Int, context: ActorContext): (Props, Seq[ActorRef]) = {
-    val children: List[ActorRef] = (1 to numberOfInstances).map(i => context.actorOf(actorProps, name + s"-$i")).toList
+  def props(actorProps: Props,
+            name: String,
+            numberOfInstances: Int,
+            context: ActorContext): (Props, Seq[ActorRef]) = {
+    val children: List[ActorRef] = (1 to numberOfInstances)
+      .map(i => context.actorOf(actorProps, name + s"-$i"))
+      .toList
     (Props(LoadBalancerActor(actorProps, name, children)), children)
   }
 
   case class Broadcast(msg: Any)
 
 }
-
