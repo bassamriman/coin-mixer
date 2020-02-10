@@ -10,8 +10,8 @@ import com.gemini.jobcoin.mixrequest.models.{
 }
 
 /**
-  * The finite state machine the tack the lifecycle of a mix request.
-  *
+  * The finite state machine that tracks the lifecycle of a mix request.
+  *  Lifecyle of a mix request:
   *  requested -> balance received -> balance transferred to mixing address -> mixing -> completed
   *
   * @param state

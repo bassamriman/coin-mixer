@@ -7,7 +7,8 @@ import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
 /**
-  * ValidatorActor is responsible for validating transactions
+  * ValidatorActor is responsible for validating that transactions are indeed stored
+  * in the jobcoin ledger
   */
 case class ValidatorActor() extends MixerActor {
 

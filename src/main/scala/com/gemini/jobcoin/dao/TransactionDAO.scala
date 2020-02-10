@@ -5,7 +5,7 @@ import java.time.ZonedDateTime
 import play.api.libs.json.{Json, Reads}
 
 /**
-  * Transaction Data Access Object that we load from Jobcoin API
+  * Transaction format that we load from Jobcoin API
   * @param timestamp
   * @param fromAddress
   * @param toAddress

@@ -9,8 +9,8 @@ import com.gemini.jobcoin.mixrequest
 
 /**
   * Mix Request Task is the building block of this entire application.
-  * It holds the a transaction and it's FSM that track the transactions's state
-  *
+  * It holds a transaction and an FSM that tracks the transactions's state
+  * Transaction lifecycle:
   *  idle -> scheduled -> committed -> completed (validated)
   *
   * @param id of the mix request task

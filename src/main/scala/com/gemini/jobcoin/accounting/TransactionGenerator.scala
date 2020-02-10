@@ -10,14 +10,14 @@ import scala.annotation.tailrec
 object TransactionGenerator {
 
   /**
-    * Generates Random Transaction based on give addresses and amount
+    * Generates Random Transactions based on given addresses and amount
     * @param amountToDistribute amount to distribute from source address to destination addresses
-    * @param sourceAddress address we sending money from
-    * @param destinationAddresses address we are distributing money too
-    * @param minTransactionAmount the minimum amount of transaction per destination address
-    * @param maxTransactionAmount the maximum amount of transaction per destination address
-    * @param maxScale the amount of number to the right of the decimal point
-    * @param seed seed used for randomly generating number (useful for troubleshooting and testing)
+    * @param sourceAddress address we are sending money from
+    * @param destinationAddresses addresses we are distributing money too
+    * @param minTransactionAmount the minimum amount per transaction
+    * @param maxTransactionAmount the maximum amount per transaction
+    * @param maxScale the amount of digits to the right of the decimal point
+    * @param seed seed used for randomly generate numbers (useful for troubleshooting and testing)
     * @return List of transactions
     */
   def generateTransactions(

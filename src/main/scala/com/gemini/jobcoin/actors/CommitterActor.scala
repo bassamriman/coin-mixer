@@ -7,7 +7,7 @@ import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
 /**
-  * CommitterActor is responsible for persisting transactions
+  * CommitterActor is responsible for persisting transactions in to the jobcoin ledger
   * @param apiAccessActor Actor that will be contacted to persist transactions
   */
 case class CommitterActor(apiAccessActor: ActorRef) extends MixerActor {

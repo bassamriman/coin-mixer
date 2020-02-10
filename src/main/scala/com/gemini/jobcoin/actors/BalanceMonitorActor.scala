@@ -7,7 +7,8 @@ import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.models.MixRequest
 
 /**
-  * Actor that is responsible for detecting when money is sent to a specific address
+  * Actor that is responsible for detecting when money is sent
+  * to the address that was given to the issuer (user) of a mix request
   */
 case class BalanceMonitorActor() extends MixerActor {
 

@@ -55,7 +55,7 @@ case class MixRequestRegistry(
   }
 
   /**
-    * Register single mix requests
+    * Register single mix request
     * @param mixRequest
     * @return new state registry
     */
@@ -137,8 +137,8 @@ case class MixRequestRegistry(
     balanceNotReceived(Seq(mixRequest), timestamp)
 
   /**
-    * Updated the state of mix requests to mixing with the given transactions
-    * @param mixRequestTransactionsPairs mix request with the corresponding transactions
+    * Updated the state of mix requests to mixing
+    * @param mixRequestTransactionsPairs mix request with their corresponding transactions
     * @param timestamp
     * @return
     */
@@ -166,7 +166,7 @@ case class MixRequestRegistry(
   }
 
   /**
-    * Updated the state of mix request to mixing with the given transactions
+    * Update the state of a mix request to mixing
     * @param timestamp
     * @return
     */
@@ -257,7 +257,7 @@ case class MixRequestRegistry(
   }
 
   /**
-    * Update the state of given mix request task to committed
+    * Update the state of the given mix request tasks to committed
     * @param mixRequestTasks
     * @param timestamp
     * @return
@@ -273,7 +273,7 @@ case class MixRequestRegistry(
     )
 
   /**
-    * Reset the state of given mix request task
+    * Reset the state of the given mix request tasks
     * @param mixRequestTasks
     * @param timestamp
     * @return
@@ -289,7 +289,7 @@ case class MixRequestRegistry(
     )
 
   /**
-    * Update the state of given mix request task to completed
+    * Update the state of the given mix request tasks to completed
     * @param mixRequestTasks
     * @param timestamp
     * @return

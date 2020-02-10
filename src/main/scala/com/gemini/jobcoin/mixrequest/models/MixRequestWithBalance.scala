@@ -4,9 +4,9 @@ import com.gemini.jobcoin.accounting.Transaction
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
 /**
-  * Adds balance and the mix request task to a MixRequest.
-  * The balance is money transferred to the address provided to the user.
-  * The Mix Request Task tracks the state of the  transaction responsible
+  * Attaches a balance and a mix request task.
+  * The balance is the money transferred to the address provided to the user.
+  * The Mix Request Task tracks the state of the transaction responsible
   * for transferring the funds from the given address to the mixing address
   */
 trait MixRequestWithBalance extends MixRequestDelegate {

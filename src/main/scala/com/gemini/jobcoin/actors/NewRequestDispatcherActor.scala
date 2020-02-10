@@ -8,7 +8,7 @@ import com.gemini.jobcoin.mixrequest.models.MixRequestCoordinate
 
 /**
   * NewRequestDispatcherActor is the gateway to entire actor system.
-  * Mix Requests will be forwarded to the AccountManagerActor
+  * Mix Requests will be forwarded to the accountAndMixRequestManagerActor
   * @param newRequestHandler
   */
 case class NewRequestDispatcherActor(newRequestHandler: ActorRef)

@@ -10,19 +10,20 @@ import com.typesafe.config.Config
 import scala.concurrent.duration._
 
 /**
-  * Param used of tuning performance
+  * Parameters used of tuning performance
   * @param accountAndMixRequestManagerActorInitialSeed
   * @param mixedTransactionGeneratorInitialSeed
-  * @param delayBetweenMixing the time we wait between scheduling new mixing tasks.
-  *                           Useful to control the randomness of the timestamp of
-  *                           a transaction. (A future improvement would be to make this random)
-  * @param delayBetweenAllTransactionFetching time we waiting between each time we poll the the jobcoin api
+  * @param delayBetweenMixing the time we wait between each scheduling of new mixRequestTasks.
+  *                           Useful to control the randomness whichtransactions are mixed in to
+  *                           the destination addresses.
+  *                           (A future improvement would be to make this random)
+  * @param delayBetweenAllTransactionFetching is the delay between each time we fetch the jobcoin api
   *                                           for latest ledger
   * @param numberOfInstancePerActor this used for scaling. It's number of instance of actor
   *                                 we are going to create per actor type.
-  *                                 (A future improvement would be to have one per actor type).
-  * @param numberOfMixRequestTaskToSchedule number of mix request task to schedule per scheduling
-  *                                         of new mixing tasks.
+  *                                 (A future improvement would be to have one config per actor type).
+  * @param numberOfMixRequestTaskToSchedule number of mix request tasks to schedule per each scheduling
+  *                                         mix request tasks.
   *
   */
 case class RunConfiguration(accountAndMixRequestManagerActorInitialSeed: Long,

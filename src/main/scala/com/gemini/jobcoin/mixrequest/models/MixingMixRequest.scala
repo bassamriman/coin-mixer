@@ -11,11 +11,11 @@ import com.gemini.jobcoin.mixrequest.{
 
 /**
   * Parameter used to control the mixing
-  * @param minTransactionPerDestinationAddress minimum amount of transactions per destination address
-  * @param maxTransactionPerDestinationAddress maximum amount of transactions per destination address
-  * @param minTransactionAmount minimum amount per transaction
-  * @param maxTransactionAmount maximum amount per transaction
-  * @param maxScale number of digit to right of the decimal point
+  * @param minTransactionPerDestinationAddress minimum number of transactions per destination address
+  * @param maxTransactionPerDestinationAddress maximum number of transactions per destination address
+  * @param minTransactionAmount minimum amount of a transaction
+  * @param maxTransactionAmount maximum amount of a transaction
+  * @param maxScale number of digit to the right of the decimal point
   */
 case class MixingProperties(minTransactionPerDestinationAddress: Int,
                             maxTransactionPerDestinationAddress: Int,
@@ -25,8 +25,8 @@ case class MixingProperties(minTransactionPerDestinationAddress: Int,
 
 /**
   * Adds mix request tasks to MixRequestWithBalance.
-  *  These mix request tasks track the state of all the mixing transactions
-  *  from mixing address to destinations addresses
+  * These mix request tasks track the state of all the mixing transactions (in the form of mixRequestTask)
+  * from mixing address to destinations addresses
   */
 trait MixingMixRequest extends MixRequestWithBalanceDelegate {
   val mixRequestWithBalance: MixRequestWithBalance

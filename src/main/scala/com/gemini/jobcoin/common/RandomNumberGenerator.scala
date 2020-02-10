@@ -4,7 +4,7 @@ import scala.annotation.tailrec
 import scala.util.Random
 
 /**
-  * API that allows us to generates ranges of numbers
+  * API that allows us to generate numbers or ranges of numbers
   */
 object RandomNumberGenerator {
 
@@ -103,7 +103,8 @@ object RandomNumberGenerator {
   }
 
   /**
-    * Generate a certain number of ints between a minimum and maximum that sum to a certain amount
+    * Generate a certain number of ints between a minimum and maximum
+    * that sum to a certain amount
     * @param sum
     * @param seed
     * @return

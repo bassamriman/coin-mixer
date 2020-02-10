@@ -4,7 +4,8 @@ import akka.actor.{ActorContext, ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 
 /**
-  * LoadBalancerActor is responsible for distributing msg evenly amongst it's recipients
+  * LoadBalancerActor is responsible for distributing msg evenly amongst it's recipients.
+  * It will act like a proxy. The original sender of a message will be forwarded to the recipient.
   * @param recipients are the actors to which the messages will be forwarded to
   */
 case class LoadBalancerActor(recipients: List[ActorRef]) extends MixerActor {

@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 /**
-  * Adds an id, time of creation and mixing address to MixRequestCoordinate
+  * Attaches an id, time of creation and mixing address to MixRequestCoordinate
   */
 trait MixRequest extends MixRequestCoordinateDelegate {
   def id: String

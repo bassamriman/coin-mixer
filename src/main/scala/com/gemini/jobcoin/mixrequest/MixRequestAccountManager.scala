@@ -47,7 +47,7 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
 
   /**
     * Cancel mix request for not receiving the balance
-    * (NOT USED: tracking time of a mix request is not yet implemented)
+    * (NOT USED: tracking idle time of a mix request is not yet implemented)
     * @param mixRequest
     * @param timestamp
     * @return
@@ -141,7 +141,7 @@ case class MixRequestAccountManager(mixingAccount: MixingAccount,
   }
 
   /**
-    * Reset state of the given mix request tasks. Used in case of failures.
+    * Resets the state of the given mix request tasks. Used in case of failures.
     * @param mixRequestTasks
     * @param timestamp
     * @return

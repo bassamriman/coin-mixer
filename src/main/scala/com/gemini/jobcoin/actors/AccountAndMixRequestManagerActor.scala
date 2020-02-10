@@ -13,17 +13,17 @@ import com.gemini.jobcoin.mixrequest.models.{
 import com.gemini.jobcoin.mixrequest.{models, _}
 
 /**
-  * AccountAndMixRequestManagerActor is responsible for managing all the states.
+  * AccountAndMixRequestManagerActor is responsible for managing all the state.
   * AccountAndMixRequestManagerActor is also responsible for coordinating the execution
   * of all steps required to successfully mix coins in to different addresses.
   *
   * @param mixingAddress The address where all coins will get mixed
-  * @param mixingProperties Parameters that controls the random transaction generator
-  * @param initialSeed Seed to control Random number generators (makes it easy to reproduce issues)
+  * @param mixingProperties Parameters that controls the random transactions generator
+  * @param initialSeed Seed to control randomness of the random number generation (makes it easy to reproduce issues)
   * @param balanceMonitorActor Actor that is responsible for detecting when money is sent to a specific address
   * @param mixedTransactionGeneratorActor Actor responsible for generating random transactions
   * @param committerActor Actor that is responsible for persisting transactions
-  * @param validatorActor Actor responsible for validating if a transaction we persisted or not
+  * @param validatorActor Actor responsible for validating if a transaction was persisted or not
   */
 case class AccountAndMixRequestManagerActor(
   mixingAddress: String,

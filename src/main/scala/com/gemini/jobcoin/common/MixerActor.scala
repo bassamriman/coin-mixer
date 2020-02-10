@@ -9,7 +9,7 @@ import com.gemini.jobcoin.LogSettings
 trait MixerActor extends Actor with ActorLogging {
 
   /**
-    * Log messages
+    * Log messages sent received by current actor
     * @param pf1
     * @tparam A
     * @tparam Unit
