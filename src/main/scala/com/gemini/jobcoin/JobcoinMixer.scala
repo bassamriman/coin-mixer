@@ -5,8 +5,15 @@ import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.stream.ActorMaterializer
-import com.gemini.jobcoin.actors.{NewRequestDispatcherActor, SupervisorActor}
-import com.gemini.jobcoin.mixrequest.{MixRequestCoordinate, MixingProperties}
+import com.gemini.jobcoin.actors.{
+  NewRequestDispatcherActor,
+  RunConfiguration,
+  SupervisorActor
+}
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequestCoordinate,
+  MixingProperties
+}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration._
@@ -24,28 +31,29 @@ object JobcoinMixer {
     // Load Config
     val config = ConfigFactory.load()
 
-    val mixingAddress: String = UUID.randomUUID().toString
     val mixingProperties =
       MixingProperties(
         minTransactionPerDestinationAddress = 1,
         maxTransactionPerDestinationAddress = 12,
-        minTransactionAmount = BigDecimal(0),
+        minTransactionAmount = BigDecimal(1),
         maxTransactionAmount = BigDecimal(10),
-        maxScale = 3,
-        numberOfMixRequestTaskToSchedule = 1
+        maxScale = 3
       )
+
+    val runConfig: RunConfiguration = RunConfiguration(
+      delayBetweenMixing = 1 seconds,
+      delayBetweenAllTransactionFetching = 1 seconds,
+      accountAndMixRequestManagerActorInitialSeed = 13,
+      mixedTransactionGeneratorInitialSeed = 20,
+      numberOfInstancePerActor = 1,
+      numberOfMixRequestTaskToSchedule = 1
+    )
 
     val supervisorActor: ActorRef = actorSystem.actorOf(
       SupervisorActor.props(
-        address = mixingAddress,
         mixingProperties = mixingProperties,
-        delayBetweenMixing = 1 seconds,
-        delayBetweenAllTransactionFetching = 1 seconds,
-        accountManagerInitialSeed = 13,
-        mixedTransactionGeneratorInitialSeed = 20,
-        mockAPI = false,
-        numberOfInstancePerActor = 1,
-        apiClientConfig = config,
+        settings = runConfig,
+        apiClientConfig = config
       ),
       "Supervisor"
     )

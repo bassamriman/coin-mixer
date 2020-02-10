@@ -4,10 +4,17 @@ import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.accounting.BasicLedger
 import com.gemini.jobcoin.common.MixerActor
 
-case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef)
+/**
+  * LedgerPublisherActor is responsible for querying for the lastest Jobcoin ledger state
+  * and publishing it to its subscribers
+  * @param subscribers are the actors that will receive latest ledger updates
+  * @param apiAccessActor will be queried to load latest Jobcoin ledger
+  */
+case class LedgerPublisherActor(subscribers: Seq[ActorRef],
+                                apiAccessActor: ActorRef)
     extends MixerActor {
 
-  import LedgerActor._
+  import LedgerPublisherActor._
 
   override def receive: Receive = logged(handle)
 
@@ -18,9 +25,9 @@ case class LedgerActor(subscribers: Seq[ActorRef], apiAccessActor: ActorRef)
   }
 }
 
-object LedgerActor {
+object LedgerPublisherActor {
   def props(subscribers: Seq[ActorRef], apiAccessActor: ActorRef): Props =
-    Props(LedgerActor(subscribers, apiAccessActor))
+    Props(LedgerPublisherActor(subscribers, apiAccessActor))
 
   case object SendMeLatestLedger
 

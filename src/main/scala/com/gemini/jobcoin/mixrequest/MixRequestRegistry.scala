@@ -3,19 +3,42 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 
 import com.gemini.jobcoin.accounting.IdentifiableTransaction
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequest,
+  MixRequestWithBalance,
+  MixingProperties
+}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.TreeSet
 
+/**
+  * MixRequestRegistry controls and holds many Mix request FSMs
+  * @param keyToMixRequestFSM mix request key to MixRequestFSM
+  * @param sortedMixRequestsFSMByInitiatedTime sorted mix request by oldest to youngest
+  * @param mixingProperties
+  * @param numberOfMixRequestTaskToSchedule max number of mix request to schedule at a time
+  */
 case class MixRequestRegistry(
   keyToMixRequestFSM: Map[String, MixRequestFSM],
   sortedMixRequestsFSMByInitiatedTime: TreeSet[MixRequestFSM],
-  mixingProperties: MixingProperties
+  mixingProperties: MixingProperties,
+  numberOfMixRequestTaskToSchedule: Int,
 ) {
 
+  /**
+    * Check if a mix request exists in current registry
+    * @param mixRequest
+    * @return
+    */
   def exists(mixRequest: MixRequest): Boolean =
     keyToMixRequestFSM.contains(mixRequest.id)
 
+  /**
+    * Register new mix requests
+    * @param mixRequests
+    * @return
+    */
   def register(mixRequests: Seq[MixRequest]): MixRequestRegistry = {
     val mixRequestFSMs =
       mixRequests.map(mixRequest => MixRequestFSM(mixRequest))
@@ -31,9 +54,20 @@ case class MixRequestRegistry(
     )
   }
 
+  /**
+    * Register single mix requests
+    * @param mixRequest
+    * @return new state registry
+    */
   def register(mixRequest: MixRequest): MixRequestRegistry =
     register(Seq(mixRequest))
 
+  /**
+    * Update the state given mix requests to balance received
+    * @param balanceMixRequestPairs
+    * @param timestamp
+    * @return new registry state with the update mix request task
+    */
   def balanceReceived(
     balanceMixRequestPairs: Seq[(BigDecimal, MixRequest)],
     timestamp: LocalDateTime
@@ -55,6 +89,10 @@ case class MixRequestRegistry(
     ) -> result.flatMap(_._3)
   }
 
+  /**
+    * Update the state given mix request to balance received
+    * @return new registry state with the update mix request task
+    */
   def balanceReceived(
     balance: BigDecimal,
     mixRequest: MixRequest,
@@ -62,6 +100,11 @@ case class MixRequestRegistry(
   ): (MixRequestRegistry, Seq[MixRequestTask]) =
     balanceReceived(Seq((balance, mixRequest)), timestamp)
 
+  /**
+    * Update the state given mix requests to balance NOT received
+    * (NOT USED)
+    * @return new registry state with the update mix request task
+    */
   def balanceNotReceived(
     mixRequests: Seq[MixRequest],
     timestamp: LocalDateTime
@@ -82,12 +125,23 @@ case class MixRequestRegistry(
     ) -> result.flatMap(_._3)
   }
 
+  /**
+    * Update the state given mix request to balance NOT received
+    * (NOT USED)
+    * @return new registry state with the update mix request task
+    */
   def balanceNotReceived(
     mixRequest: MixRequest,
     timestamp: LocalDateTime
   ): (MixRequestRegistry, Seq[MixRequestTask]) =
     balanceNotReceived(Seq(mixRequest), timestamp)
 
+  /**
+    * Updated the state of mix requests to mixing with the given transactions
+    * @param mixRequestTransactionsPairs mix request with the corresponding transactions
+    * @param timestamp
+    * @return
+    */
   def startMixing(
     mixRequestTransactionsPairs: Seq[
       (MixRequestWithBalance, Seq[IdentifiableTransaction])
@@ -111,6 +165,11 @@ case class MixRequestRegistry(
     ) -> result.flatMap(_._3)
   }
 
+  /**
+    * Updated the state of mix request to mixing with the given transactions
+    * @param timestamp
+    * @return
+    */
   def startMixing(
     mixRequest: MixRequestWithBalance,
     transactions: Seq[IdentifiableTransaction],
@@ -118,6 +177,12 @@ case class MixRequestRegistry(
   ): (MixRequestRegistry, Seq[MixRequestTask]) =
     startMixing(Seq((mixRequest, transactions)), timestamp)
 
+  /**
+    * Select mix request to be scheduled
+    * @param timestamp
+    * @param seed
+    * @return
+    */
   def scheduleMixRequestTasks(
     timestamp: LocalDateTime
   )(seed: Long): (MixRequestRegistry, Seq[MixRequestTask]) = {
@@ -158,7 +223,7 @@ case class MixRequestRegistry(
       : Seq[(Mixing, Seq[MixRequestTask])] =
       scheduleMixRequestTasksUntilNumberIsMet(
         mixingMixRequests.toList,
-        mixingProperties.numberOfMixRequestTaskToSchedule,
+        numberOfMixRequestTaskToSchedule,
         timestamp
       )
 
@@ -191,6 +256,12 @@ case class MixRequestRegistry(
 
   }
 
+  /**
+    * Update the state of given mix request task to committed
+    * @param mixRequestTasks
+    * @param timestamp
+    * @return
+    */
   def commitMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask],
     timestamp: LocalDateTime
@@ -201,6 +272,12 @@ case class MixRequestRegistry(
       CommitMixRequestTasks
     )
 
+  /**
+    * Reset the state of given mix request task
+    * @param mixRequestTasks
+    * @param timestamp
+    * @return
+    */
   def resetMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask],
     timestamp: LocalDateTime
@@ -211,6 +288,12 @@ case class MixRequestRegistry(
       ResetMixRequestTasks
     )
 
+  /**
+    * Update the state of given mix request task to completed
+    * @param mixRequestTasks
+    * @param timestamp
+    * @return
+    */
   def completeMixRequestTasks(
     mixRequestTasks: Seq[MixRequestTask],
     timestamp: LocalDateTime
@@ -220,6 +303,9 @@ case class MixRequestRegistry(
     CompleteMixRequestTasks
   )
 
+  /**
+    * @Returns all the mix requests with state BalanceTransferredToMixingAddress
+    */
   def getAllBalanceTransferredToMixingAddressMixRequestStates
     : Seq[BalanceTransferredToMixingAddress] = {
     sortedMixRequestsFSMByInitiatedTime
@@ -257,7 +343,7 @@ case class MixRequestRegistry(
     ) -> result.flatMap(_._3)
   }
 
-  def updateMixRequestFSM(
+  private def updateMixRequestFSM(
     mixRequestFSMsToRemove: Seq[MixRequestFSM],
     mixRequestFSMsToAdd: Seq[MixRequestFSM]
   ): MixRequestRegistry = {
@@ -323,10 +409,12 @@ case class MixRequestRegistry(
 }
 
 object MixRequestRegistry {
-  def empty(mixingProperties: MixingProperties): MixRequestRegistry =
+  def empty(mixingProperties: MixingProperties,
+            numberOfMixRequestTaskToSchedule: Int): MixRequestRegistry =
     MixRequestRegistry(
       Map.empty,
       TreeSet.empty[MixRequestFSM](MixRequestFSMOrdering),
-      mixingProperties
+      mixingProperties,
+      numberOfMixRequestTaskToSchedule
     )
 }

@@ -1,22 +1,46 @@
 package com.gemini.jobcoin.accounting
 
-import java.time.LocalDateTime
 import java.util.UUID
 
-import com.gemini.jobcoin.common.{Identifiable, Timestampable}
+import com.gemini.jobcoin.common.Identifiable
 import com.gemini.jobcoin.dao.TransactionDAO
 import play.api.libs.json.{Json, Writes}
 
+/**
+  * A transaction is a transfer of funds between two address
+  */
 trait Transaction {
   val fromAddress: String
   val toAddress: String
   val amount: BigDecimal
 
+  /**
+    * Check if given address in either part of the from or to address of this transaction
+    * @param address
+    * @return
+    */
   def involvesAddress(address: String): Boolean =
     fromAddress == address || toAddress == address
 
+  /**
+    * Check if given address is receiving funds due to this transaction
+    * @param address
+    * @return
+    */
   def isReceivingAddress(address: String): Boolean = address == toAddress
+
+  /**
+    * Check if given address is sending funds due to this transaction
+    * @param address
+    * @return
+    */
   def isSendingAddress(address: String): Boolean = address == fromAddress
+
+  /**
+    * Get the amount of this transaction with adjusted sign relative to the given address
+    * @param address
+    * @return
+    */
   def signAdjustAmount(address: String): Option[BigDecimal] =
     if (fromAddress == address && toAddress == address) {
       Some(BigDecimal(0))
@@ -36,14 +60,29 @@ trait BasicTransactionDelegate extends Transaction {
   override val amount: BigDecimal = basicTransaction.amount
 }
 
+/**
+  * A simple Transaction
+  * @param fromAddress
+  * @param toAddress
+  * @param amount
+  */
 case class BasicTransaction(fromAddress: String,
                             toAddress: String,
                             amount: BigDecimal)
     extends Transaction {
 
+  /**
+    * Inverse the transaction
+    * @return
+    */
   def inverseSign: BasicTransaction =
     BasicTransaction(toAddress, fromAddress, -amount)
 
+  /**
+    * Adjust the transaction to make sure the sign is positive based on the given Address
+    * @param address
+    * @return
+    */
   def forcePositiveBalance(address: String): Option[BasicTransaction] = {
     if (fromAddress == address || toAddress == address) {
       if (amount < 0) {
@@ -67,17 +106,16 @@ object BasicTransaction {
     )
 }
 
+/**
+  * Transaction with id
+  * @param basicTransaction
+  * @param id
+  */
 case class IdentifiableTransaction(basicTransaction: BasicTransaction,
                                    id: String)
     extends BasicTransactionDelegate
     with Transaction
     with Identifiable
-
-case class TimestampableTransaction(timestamp: LocalDateTime,
-                                    basicTransaction: BasicTransaction)
-    extends BasicTransactionDelegate
-    with Transaction
-    with Timestampable
 
 object Transaction {
   def apply(fromAddress: String,
@@ -110,18 +148,5 @@ object Transaction {
       fromAddress = fromAddress,
       toAddress = toAddress,
       amount = amount
-    )
-
-  def withTimestamp(timestamp: LocalDateTime,
-                    fromAddress: String,
-                    toAddress: String,
-                    amount: BigDecimal): TimestampableTransaction =
-    TimestampableTransaction(
-      timestamp,
-      Transaction(
-        fromAddress = fromAddress,
-        toAddress = toAddress,
-        amount = amount
-      )
     )
 }

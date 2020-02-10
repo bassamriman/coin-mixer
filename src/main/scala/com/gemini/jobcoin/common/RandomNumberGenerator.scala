@@ -3,7 +3,18 @@ package com.gemini.jobcoin.common
 import scala.annotation.tailrec
 import scala.util.Random
 
+/**
+  * API that allows us to generates ranges of numbers
+  */
 object RandomNumberGenerator {
+
+  /**
+    * Generate an Int between a minimum and maximum
+    * @param min
+    * @param max
+    * @param seed
+    * @return Int
+    */
   def generateRandomIntBetween(min: Int, max: Int)(seed: Long): Int = {
     require(max > min, "max should be bigger then min")
     require(min >= 0, "min should be bigger than zero")
@@ -12,6 +23,14 @@ object RandomNumberGenerator {
     min + new Random(newSeed).nextInt(max - min)
   }
 
+  /**
+    * Generate a Big decimal between a minimum and maximum
+    * @param min
+    * @param max
+    * @param maxScale
+    * @param seed
+    * @return bigdecimal
+    */
   def generateRandomBigDecimalBetween(min: BigDecimal,
                                       max: BigDecimal,
                                       maxScale: Int)(seed: Long): BigDecimal = {
@@ -27,6 +46,16 @@ object RandomNumberGenerator {
     generatedBigDecimal.setScale(scale, BigDecimal.RoundingMode.HALF_UP)
   }
 
+  /**
+    * Generate a sequence of bigdecimal between a minimum and a maximum
+    * that sum up to certain amount
+    * @param sum
+    * @param min
+    * @param max
+    * @param maxScale
+    * @param seed
+    * @return bigdecimal
+    */
   def generateRandomBigDecimals(sum: BigDecimal,
                                 min: BigDecimal,
                                 max: BigDecimal,
@@ -49,6 +78,13 @@ object RandomNumberGenerator {
     )(newSeed)
   }
 
+  /**
+    * Generate a certain number of ints that sum to a certain amount
+    * @param sum
+    * @param numberOfInts
+    * @param seed
+    * @return
+    */
   def generateRandomInts(sum: Int, numberOfInts: Int)(seed: Long): Seq[Int] = {
     require(sum > 0, "sum should be bigger than zero")
     val newSeed = new Random(seed).nextLong()
@@ -66,6 +102,12 @@ object RandomNumberGenerator {
     adjustFirstInt.map(_ +: normalizedInts.tail).getOrElse(Seq.empty)
   }
 
+  /**
+    * Generate a certain number of ints between a minimum and maximum that sum to a certain amount
+    * @param sum
+    * @param seed
+    * @return
+    */
   def generateRandomInts(sum: Int, min: Int, max: Int)(seed: Long): Seq[Int] = {
     require(max >= min, "max should be bigger then min")
     require(min >= 0, "min should be bigger than zero")
@@ -83,6 +125,7 @@ object RandomNumberGenerator {
       generateNumber = generateRandomIntBetween(min, max)
     )(newSeed)
   }
+
   @tailrec
   private def combineUntilDesiredAccumulatedAmount[T](
     accumulatedSum: T,

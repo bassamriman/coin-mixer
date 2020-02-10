@@ -1,5 +1,8 @@
-package com.gemini.jobcoin.mixrequest
+package com.gemini.jobcoin.mixrequest.models
 
+/**
+  * Holds the source address and destination addresses that will be used for mixing
+  */
 trait MixRequestCoordinate {
   def sourceAddress: String
   def destinationAddresses: Seq[String]

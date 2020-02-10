@@ -7,6 +7,18 @@ import com.gemini.jobcoin.accounting.IdentifiableTransaction
 import com.gemini.jobcoin.common.Identifiable
 import com.gemini.jobcoin.mixrequest
 
+/**
+  * Mix Request Task is the building block of this entire application.
+  * It holds the a transaction and it's FSM that track the transactions's state
+  *
+  *  idle -> scheduled -> committed -> completed (validated)
+  *
+  * @param id of the mix request task
+  * @param mixRequestId id of the parent mix request
+  * @param transaction the transaction
+  * @param state state of the transaction
+  * @param eventHistory history of events that cause the FSM to change state
+  */
 case class MixRequestTask(id: String,
                           mixRequestId: String,
                           transaction: IdentifiableTransaction,
@@ -18,6 +30,11 @@ case class MixRequestTask(id: String,
   val isScheduled: Boolean = state == MixRequestTaskState.Scheduled
   val isCompleted: Boolean = state == MixRequestTaskState.Completed
 
+  /**
+    * Transition the state of the mix request task based on the given event
+    * @param event
+    * @return new version with he updated state
+    */
   def transition(event: MixRequestTaskEvent): MixRequestTask =
     MixRequestTask.transition(this, event)
 

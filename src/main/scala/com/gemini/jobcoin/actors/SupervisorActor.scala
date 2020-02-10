@@ -4,20 +4,45 @@ import akka.actor.{ActorRef, PoisonPill, Props}
 import akka.stream.Materializer
 import com.gemini.jobcoin.JobcoinClient
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.MixingProperties
+import com.gemini.jobcoin.mixrequest.models.MixingProperties
 import com.typesafe.config.Config
 
 import scala.concurrent.duration._
 
+/**
+  * Param used of tuning performance
+  * @param accountAndMixRequestManagerActorInitialSeed
+  * @param mixedTransactionGeneratorInitialSeed
+  * @param delayBetweenMixing the time we wait between scheduling new mixing tasks.
+  *                           Useful to control the randomness of the timestamp of
+  *                           a transaction. (A future improvement would be to make this random)
+  * @param delayBetweenAllTransactionFetching time we waiting between each time we poll the the jobcoin api
+  *                                           for latest ledger
+  * @param numberOfInstancePerActor this used for scaling. It's number of instance of actor
+  *                                 we are going to create per actor type.
+  *                                 (A future improvement would be to have one per actor type).
+  * @param numberOfMixRequestTaskToSchedule number of mix request task to schedule per scheduling
+  *                                         of new mixing tasks.
+  *
+  */
+case class RunConfiguration(accountAndMixRequestManagerActorInitialSeed: Long,
+                            mixedTransactionGeneratorInitialSeed: Long,
+                            delayBetweenMixing: FiniteDuration,
+                            delayBetweenAllTransactionFetching: FiniteDuration,
+                            numberOfInstancePerActor: Int,
+                            numberOfMixRequestTaskToSchedule: Int)
+
+/**
+  * The actor that is responsible for wiring all the actors together.
+  *
+  * @param mixingProperties
+  * @param settings
+  * @param apiClientConfig
+  * @param materializer
+  */
 case class SupervisorActor(
-  address: String,
   mixingProperties: MixingProperties,
-  delayBetweenMixing: FiniteDuration,
-  delayBetweenAllTransactionFetching: FiniteDuration,
-  accountManagerInitialSeed: Long,
-  mixedTransactionGeneratorInitialSeed: Long,
-  mockAPI: Boolean,
-  numberOfInstancePerActor: Int,
+  settings: RunConfiguration,
   apiClientConfig: Config
 )(implicit materializer: Materializer)
     extends MixerActor {
@@ -30,8 +55,9 @@ case class SupervisorActor(
   private val validatorActorName: String = "ValidatorActor"
   private val apiAccessActorName: String = "ApiAccessActor"
   private val committerActorName: String = "CommitterActor"
-  private val ledgerActorName: String = "LedgerActor"
-  private val accountManagerActorName: String = "AccountManagerActor"
+  private val ledgerPublisherActorName: String = "LedgerPublisherActor"
+  private val accountAndMixRequestManagerActorName: String =
+    "AccountAndMixRequestManagerActor"
   private val newRequestDispatcherActorName: String =
     "NewRequestDispatcherActor"
 
@@ -51,7 +77,10 @@ case class SupervisorActor(
       ) =
         actorOfWithLoadBalancer(
           MixedTransactionGeneratorActor
-            .props(mixingProperties, mixedTransactionGeneratorInitialSeed),
+            .props(
+              mixingProperties,
+              settings.mixedTransactionGeneratorInitialSeed
+            ),
           mixedTransactionGeneratorActorName
         )
 
@@ -60,10 +89,7 @@ case class SupervisorActor(
 
       val (apiAccessActorLoadBalancerActor, apiAccessActors) =
         actorOfWithLoadBalancer(
-          APIAccessActor.props(
-            if (mockAPI) JobcoinClient.mock()
-            else JobcoinClient(apiClientConfig)
-          ),
+          APIAccessActor.props(JobcoinClient(apiClientConfig)),
           apiAccessActorName
         )
 
@@ -73,28 +99,29 @@ case class SupervisorActor(
           committerActorName
         )
 
-      val ledgerActor: ActorRef =
+      val ledgerPublisherActor: ActorRef =
         context.actorOf(
-          LedgerActor.props(
+          LedgerPublisherActor.props(
             subscribers = balanceMonitorActors ++ validatorActors,
             apiAccessActor = apiAccessActorLoadBalancerActor
           ),
-          ledgerActorName
+          ledgerPublisherActorName
         )
 
       val (accountManagerLoadBalancerActor, accountManagerActors) =
         actorOfWithLoadBalancer(
-          AccountManagerActor.props(
-            address = address,
+          AccountAndMixRequestManagerActor.props(
             mixingProperties = mixingProperties,
-            initialSeed = accountManagerInitialSeed,
+            numberOfMixRequestTaskToSchedule =
+              settings.numberOfMixRequestTaskToSchedule,
+            initialSeed = settings.accountAndMixRequestManagerActorInitialSeed,
             balanceMonitorActor = balanceMonitorLoadBalancerActor,
             mixedTransactionGeneratorActor =
               mixedTransactionGeneratorLoadBalancerActor,
             committerActor = committerLoadBalancerActor,
             validatorActor = validatorLoadBalancerActor
           ),
-          accountManagerActorName
+          accountAndMixRequestManagerActorName
         )
 
       val newRequestDispatcherActor: ActorRef =
@@ -106,19 +133,19 @@ case class SupervisorActor(
       val evaluationContext = context.system.dispatcher
 
       context.system.scheduler.schedule(
-        initialDelay = delayBetweenMixing,
-        interval = delayBetweenMixing,
+        initialDelay = settings.delayBetweenMixing,
+        interval = settings.delayBetweenMixing,
         receiver = accountManagerLoadBalancerActor,
         message = LoadBalancerActor.Broadcast(
-          AccountManagerActor.ScheduleNewMixRequestTasks
+          AccountAndMixRequestManagerActor.ScheduleNewMixRequestTasks
         )
       )(evaluationContext)
 
       context.system.scheduler.schedule(
-        initialDelay = delayBetweenAllTransactionFetching,
-        interval = delayBetweenAllTransactionFetching,
-        receiver = ledgerActor,
-        message = LedgerActor.FetchLatestLedger
+        initialDelay = settings.delayBetweenAllTransactionFetching,
+        interval = settings.delayBetweenAllTransactionFetching,
+        receiver = ledgerPublisherActor,
+        message = LedgerPublisherActor.FetchLatestLedger
       )(evaluationContext)
 
       context.become(
@@ -137,11 +164,16 @@ case class SupervisorActor(
   def actorOfWithLoadBalancer(props: Props,
                               name: String): (ActorRef, Seq[ActorRef]) = {
     require(
-      numberOfInstancePerActor >= 1,
+      settings.numberOfInstancePerActor >= 1,
       "Number of actor instance should be at least 1"
     )
     val (loadBalancerProps, children) =
-      LoadBalancerActor.props(props, name, numberOfInstancePerActor, context)
+      LoadBalancerActor.props(
+        props,
+        name,
+        settings.numberOfInstancePerActor,
+        context
+      )
     (context.actorOf(loadBalancerProps, name + "-LoadBalancer"), children)
   }
 }
@@ -149,27 +181,14 @@ case class SupervisorActor(
 object SupervisorActor {
 
   def props(
-    address: String,
     mixingProperties: MixingProperties,
-    delayBetweenMixing: FiniteDuration,
-    delayBetweenAllTransactionFetching: FiniteDuration,
-    accountManagerInitialSeed: Long,
-    mixedTransactionGeneratorInitialSeed: Long,
-    mockAPI: Boolean,
-    numberOfInstancePerActor: Int,
+    settings: RunConfiguration,
     apiClientConfig: Config
   )(implicit materializer: Materializer): Props =
     Props(
       SupervisorActor(
-        address = address,
         mixingProperties = mixingProperties,
-        delayBetweenMixing = delayBetweenMixing,
-        delayBetweenAllTransactionFetching = delayBetweenAllTransactionFetching,
-        accountManagerInitialSeed = accountManagerInitialSeed,
-        mixedTransactionGeneratorInitialSeed =
-          mixedTransactionGeneratorInitialSeed,
-        mockAPI = mockAPI,
-        numberOfInstancePerActor = numberOfInstancePerActor,
+        settings = settings,
         apiClientConfig = apiClientConfig
       )
     )

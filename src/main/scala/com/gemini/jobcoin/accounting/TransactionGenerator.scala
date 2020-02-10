@@ -4,7 +4,22 @@ import com.gemini.jobcoin.common.RandomNumberGenerator
 
 import scala.annotation.tailrec
 
+/**
+  * Api that generates random transactions
+  */
 object TransactionGenerator {
+
+  /**
+    * Generates Random Transaction based on give addresses and amount
+    * @param amountToDistribute amount to distribute from source address to destination addresses
+    * @param sourceAddress address we sending money from
+    * @param destinationAddresses address we are distributing money too
+    * @param minTransactionAmount the minimum amount of transaction per destination address
+    * @param maxTransactionAmount the maximum amount of transaction per destination address
+    * @param maxScale the amount of number to the right of the decimal point
+    * @param seed seed used for randomly generating number (useful for troubleshooting and testing)
+    * @return List of transactions
+    */
   def generateTransactions(
     amountToDistribute: BigDecimal,
     sourceAddress: String,

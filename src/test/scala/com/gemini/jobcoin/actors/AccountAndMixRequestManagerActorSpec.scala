@@ -5,15 +5,16 @@ import java.time.LocalDateTime
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.gemini.jobcoin.accounting.{IdentifiableTransaction, Transaction}
-import com.gemini.jobcoin.mixrequest.{
+import com.gemini.jobcoin.mixrequest.models.{
   MixRequest,
   MixRequestCoordinate,
   MixRequestWithBalance,
   MixingProperties
 }
+
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
-class AccountManagerActorSpec
+class AccountAndMixRequestManagerActorSpec
     extends TestKit(ActorSystem("AccountManagerActorSpec"))
     with FlatSpecLike
     with ImplicitSender
@@ -37,14 +38,14 @@ class AccountManagerActorSpec
       maxTransactionPerDestinationAddress = 20,
       minTransactionAmount = BigDecimal(0),
       maxTransactionAmount = BigDecimal(10),
-      maxScale = 3,
-      numberOfMixRequestTaskToSchedule = 10
+      maxScale = 3
     )
 
     val accountManagerActor: ActorRef = system.actorOf(
-      AccountManagerActor.props(
+      AccountAndMixRequestManagerActor.props(
         address = address,
         mixingProperties = mixingProperties,
+        numberOfMixRequestTaskToSchedule = 10,
         initialSeed = seed,
         balanceMonitorActor = balanceMonitorActor.ref,
         mixedTransactionGeneratorActor = mixedTransactionGeneratorActor.ref,
@@ -82,7 +83,7 @@ class AccountManagerActorSpec
     )
 
     //Schedule Source to Mixing Transaction
-    accountManagerActor ! AccountManagerActor.ScheduleNewMixRequestTasks
+    accountManagerActor ! AccountAndMixRequestManagerActor.ScheduleNewMixRequestTasks
 
     //Commit Transaction
     val committerActorMsg: CommitterActor.Commit =
@@ -124,7 +125,7 @@ class AccountManagerActorSpec
     )
 
     //Schedule mixed transaction
-    accountManagerActor ! AccountManagerActor.ScheduleNewMixRequestTasks
+    accountManagerActor ! AccountAndMixRequestManagerActor.ScheduleNewMixRequestTasks
 
     //Commit Transaction
     val committerActorMsg2: CommitterActor.Commit =
@@ -147,7 +148,10 @@ class AccountManagerActorSpec
       ValidatorActor.Validated(validatorActorMsg2.mixRequestTasks, validatedAt2)
     )
 
-    testProb.send(accountManagerActor, AccountManagerActor.GetStatus)
+    testProb.send(
+      accountManagerActor,
+      AccountAndMixRequestManagerActor.GetStatus
+    )
     //val result = testProb.expectMsgType[AccountManagerActor.Status]
 
     //val a = 1

@@ -4,8 +4,11 @@ import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.MixRequest
+import com.gemini.jobcoin.mixrequest.models.MixRequest
 
+/**
+  * Actor that is responsible for detecting when money is sent to a specific address
+  */
 case class BalanceMonitorActor() extends MixerActor {
 
   import BalanceMonitorActor._
@@ -29,7 +32,7 @@ case class BalanceMonitorActor() extends MixerActor {
           )
         )
       )
-    case LedgerActor.LatestLedger(newLedger) =>
+    case LedgerPublisherActor.LatestLedger(newLedger) =>
       //TODO: Make this more efficient. Loop through all transactions once for multiple address
       val mixRequestIdToBalance: Map[String, BigDecimal] =
         requestsAwaitingBalance

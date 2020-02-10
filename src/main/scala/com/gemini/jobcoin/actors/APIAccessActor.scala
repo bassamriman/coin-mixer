@@ -5,6 +5,12 @@ import com.gemini.jobcoin.JobcoinClient
 import com.gemini.jobcoin.accounting._
 import com.gemini.jobcoin.common.MixerActor
 
+/**
+  * APIAccessActor is responsible for knowing how to contact the JobcoinAPI
+  * for retrieving and persisting changes to the Jobcoin ledger.
+  * Acts like bridge between the Jobcoin api and actors that need to be services.
+  * @param client
+  */
 case class APIAccessActor(client: JobcoinClient) extends MixerActor {
 
   import APIAccessActor._

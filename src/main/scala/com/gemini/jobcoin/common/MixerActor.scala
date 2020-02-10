@@ -1,9 +1,19 @@
 package com.gemini.jobcoin.common
 
 import akka.actor.{Actor, ActorLogging}
+import com.gemini.jobcoin.LogSettings
 
+/**
+  * Parent actor trait used for common logic
+  */
 trait MixerActor extends Actor with ActorLogging {
 
+  /**
+    * Log messages
+    * @param pf1
+    * @tparam A
+    * @tparam Unit
+    */
   def logged[A, Unit](
     pf1: PartialFunction[A, Unit]
   ): PartialFunction[A, Unit] = {
@@ -11,7 +21,8 @@ trait MixerActor extends Actor with ActorLogging {
       case msg =>
         val actorName: String = context.self.path.name
         val sender: String = context.sender().path.name
-        log.info(s"From: $sender || To: $actorName || Msg: $msg")
+        if (LogSettings.logMessages)
+          log.info(s"From: $sender || To: $actorName || Msg: $msg")
         msg
 
     }

@@ -64,20 +64,4 @@ object JobcoinClient {
   def apply(config: Config)(
     implicit materializer: Materializer
   ): JobcoinClient = new JobcoinClientImpl(config)
-  def mock(): JobcoinClient = new MockJobcoinClient()
-}
-
-class MockJobcoinClient() extends JobcoinClient {
-  private val transactions = collection.mutable.MutableList.empty
-
-  override def getTransactions: Future[Seq[BasicTransaction]] = async {
-    transactions
-  }
-
-  override def postTransaction(
-    transaction: BasicTransaction
-  ): Future[Option[String]] = async {
-    transactions :+ transaction
-    None
-  }
 }

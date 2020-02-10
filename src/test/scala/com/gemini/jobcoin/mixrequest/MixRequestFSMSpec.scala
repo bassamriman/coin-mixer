@@ -3,6 +3,12 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 
 import com.gemini.jobcoin.accounting.{IdentifiableTransaction, Transaction}
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequest,
+  MixRequestCoordinate,
+  MixRequestWithBalanceImpl,
+  MixingMixRequestImpl
+}
 import org.scalatest.{FlatSpec, Matchers}
 
 class MixRequestFSMSpec extends FlatSpec with Matchers {
@@ -136,7 +142,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val fromState: MixRequestState =
       ReceivedBalance(mixRequestWithBalance, receivedTime)
@@ -194,7 +204,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val fromState: MixRequestState =
       ReceivedBalance(mixRequestWithBalance, receivedTime)
@@ -252,7 +266,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val fromState: MixRequestState =
       ReceivedBalance(mixRequestWithBalance, receivedTime)
@@ -310,7 +328,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val fromState: MixRequestState =
       BalanceTransferredToMixingAddress(mixRequestWithBalance, receivedTime)
@@ -380,7 +402,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val transactions: Seq[IdentifiableTransaction] =
       Seq(
@@ -453,7 +479,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val transactions: Seq[IdentifiableTransaction] =
       Seq(
@@ -535,7 +565,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val transactions: Seq[IdentifiableTransaction] =
       Seq(
@@ -617,7 +651,11 @@ class MixRequestFSMSpec extends FlatSpec with Matchers {
       )
 
     val mixRequestWithBalance: MixRequestWithBalanceImpl =
-      MixRequestWithBalanceImpl(balanceToReceive, mixRequestTask, mixRequest)
+      models.MixRequestWithBalanceImpl(
+        balanceToReceive,
+        mixRequestTask,
+        mixRequest
+      )
 
     val transaction2: IdentifiableTransaction =
       Transaction

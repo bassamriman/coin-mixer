@@ -1,8 +1,11 @@
-package com.gemini.jobcoin.mixrequest
+package com.gemini.jobcoin.mixrequest.models
 
 import java.time.LocalDateTime
 import java.util.UUID
 
+/**
+  * Adds an id, time of creation and mixing address to MixRequestCoordinate
+  */
 trait MixRequest extends MixRequestCoordinateDelegate {
   def id: String
   def initiatedAt: LocalDateTime

@@ -6,6 +6,9 @@ import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
 import com.gemini.jobcoin.mixrequest.MixRequestTask
 
+/**
+  * ValidatorActor is responsible for validating transactions
+  */
 case class ValidatorActor() extends MixerActor {
 
   import ValidatorActor._
@@ -33,7 +36,7 @@ case class ValidatorActor() extends MixerActor {
         )
       )
 
-    case LedgerActor.LatestLedger(newLedger) =>
+    case LedgerPublisherActor.LatestLedger(newLedger) =>
       //TODO: Make this more efficient. Loop through all transactions once for multiple mix request
       val presentMixRequestTaskIds: Seq[String] = mixRequestTaskToValidate
         .mapValues(

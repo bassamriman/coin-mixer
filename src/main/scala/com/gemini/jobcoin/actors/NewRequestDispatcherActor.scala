@@ -4,8 +4,13 @@ import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.MixRequestCoordinate
+import com.gemini.jobcoin.mixrequest.models.MixRequestCoordinate
 
+/**
+  * NewRequestDispatcherActor is the gateway to entire actor system.
+  * Mix Requests will be forwarded to the AccountManagerActor
+  * @param newRequestHandler
+  */
 case class NewRequestDispatcherActor(newRequestHandler: ActorRef)
     extends MixerActor {
 

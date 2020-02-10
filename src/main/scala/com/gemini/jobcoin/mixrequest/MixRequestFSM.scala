@@ -3,16 +3,40 @@ package com.gemini.jobcoin.mixrequest
 import java.time.LocalDateTime
 
 import com.gemini.jobcoin.accounting.IdentifiableTransaction
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequest,
+  MixRequestWithBalance,
+  MixingMixRequest
+}
 
+/**
+  * The finite state machine the tack the lifecycle of a mix request.
+  *
+  *  requested -> balance received -> balance transferred to mixing address -> mixing -> completed
+  *
+  * @param state
+  * @param eventHistory
+  */
 case class MixRequestFSM(state: MixRequestState,
                          eventHistory: Seq[MixRequestEvent]) {
   val id: String = state.id
   val initiatedAt: LocalDateTime = state.initiatedAt
 
+  /**
+    * Changes the state to a new state
+    * @param newState
+    * @param event
+    * @return
+    */
   def changeState(newState: MixRequestState,
                   event: MixRequestEvent): MixRequestFSM =
     this.copy(state = newState, eventHistory = eventHistory :+ event)
 
+  /**
+    * Transitions to a new state based on an event
+    * @param event
+    * @return
+    */
   def transition(event: MixRequestEvent): (MixRequestFSM, Seq[MixRequestTask]) =
     MixRequestFSM.transition(this, event)
 

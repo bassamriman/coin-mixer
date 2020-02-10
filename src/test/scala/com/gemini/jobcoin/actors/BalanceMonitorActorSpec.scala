@@ -5,7 +5,7 @@ import java.time.LocalDateTime
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import com.gemini.jobcoin.accounting.{BasicLedger, BasicTransaction}
-import com.gemini.jobcoin.mixrequest.{MixRequest, MixRequestCoordinate}
+import com.gemini.jobcoin.mixrequest.models.{MixRequest, MixRequestCoordinate}
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 class BalanceMonitorActorSpec
@@ -54,7 +54,10 @@ class BalanceMonitorActorSpec
     val transaction1 =
       BasicTransaction("external 1", sourceAddress1, BigDecimal(32.1))
     val ledger = BasicLedger.apply(Seq(transaction1))
-    testProb.send(balanceMonitorActor, LedgerActor.LatestLedger(ledger))
+    testProb.send(
+      balanceMonitorActor,
+      LedgerPublisherActor.LatestLedger(ledger)
+    )
 
     val output: Seq[(BigDecimal, MixRequest)] =
       testProb

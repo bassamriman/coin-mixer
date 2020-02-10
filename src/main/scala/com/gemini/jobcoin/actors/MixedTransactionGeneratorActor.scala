@@ -8,8 +8,17 @@ import com.gemini.jobcoin.accounting.{
   TransactionGenerator
 }
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest.{MixRequestWithBalance, MixingProperties}
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequestWithBalance,
+  MixingProperties
+}
 
+/**
+  * MixedTransactionGeneratorActor is responsible for generating random transactions
+  * from source to destination address. In other words, mixing the money from source address.
+  * @param mixingProperties is the parameters we can tune to better optimise performance
+  * @param initialSeed is the Seed used for random number generation (good for reproducing issues).
+  */
 case class MixedTransactionGeneratorActor(mixingProperties: MixingProperties,
                                           initialSeed: Long)
     extends MixerActor {

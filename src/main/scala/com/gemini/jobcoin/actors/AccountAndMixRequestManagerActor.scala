@@ -1,26 +1,51 @@
 package com.gemini.jobcoin.actors
 
 import java.time.LocalDateTime
+import java.util.UUID
 
 import akka.actor.{ActorRef, Props}
 import com.gemini.jobcoin.common.MixerActor
-import com.gemini.jobcoin.mixrequest._
+import com.gemini.jobcoin.mixrequest.models.{
+  MixRequest,
+  MixRequestWithBalance,
+  MixingProperties
+}
+import com.gemini.jobcoin.mixrequest.{models, _}
 
-case class AccountManagerActor(mixingAddress: String,
-                               mixingProperties: MixingProperties,
-                               initialSeed: Long,
-                               balanceMonitorActor: ActorRef,
-                               mixedTransactionGeneratorActor: ActorRef,
-                               committerActor: ActorRef,
-                               validatorActor: ActorRef)
-    extends MixerActor {
+/**
+  * AccountAndMixRequestManagerActor is responsible for managing all the states.
+  * AccountAndMixRequestManagerActor is also responsible for coordinating the execution
+  * of all steps required to successfully mix coins in to different addresses.
+  *
+  * @param mixingAddress The address where all coins will get mixed
+  * @param mixingProperties Parameters that controls the random transaction generator
+  * @param initialSeed Seed to control Random number generators (makes it easy to reproduce issues)
+  * @param balanceMonitorActor Actor that is responsible for detecting when money is sent to a specific address
+  * @param mixedTransactionGeneratorActor Actor responsible for generating random transactions
+  * @param committerActor Actor that is responsible for persisting transactions
+  * @param validatorActor Actor responsible for validating if a transaction we persisted or not
+  */
+case class AccountAndMixRequestManagerActor(
+  mixingAddress: String,
+  mixingProperties: MixingProperties,
+  numberOfMixRequestTaskToSchedule: Int,
+  initialSeed: Long,
+  balanceMonitorActor: ActorRef,
+  mixedTransactionGeneratorActor: ActorRef,
+  committerActor: ActorRef,
+  validatorActor: ActorRef
+) extends MixerActor {
 
-  import AccountManagerActor._
+  import AccountAndMixRequestManagerActor._
 
   override def receive: Receive =
     logged(
       handle(
-        MixRequestAccountManager.empty(mixingAddress, mixingProperties),
+        MixRequestAccountManager.empty(
+          mixingAddress,
+          mixingProperties,
+          numberOfMixRequestTaskToSchedule
+        ),
         initialSeed
       )
     )
@@ -31,7 +56,7 @@ case class AccountManagerActor(mixingAddress: String,
           .NewRequests(mixRequestCoordinates, timestamp) =>
       val newMixRequests: Seq[MixRequest] = mixRequestCoordinates.map(
         mixRequestCoordinate =>
-          MixRequest(mixingAddress, timestamp, mixRequestCoordinate)
+          models.MixRequest(mixingAddress, timestamp, mixRequestCoordinate)
       )
       balanceMonitorActor ! BalanceMonitorActor.NewRequestsAwaitingBalance(
         newMixRequests
@@ -166,30 +191,52 @@ case class AccountManagerActor(mixingAddress: String,
           )
         )
       )
-    case AccountManagerActor.GetStatus =>
-      sender() ! AccountManagerActor.Status(mixRequestAccountManager)
+    case AccountAndMixRequestManagerActor.GetStatus =>
+      sender() ! AccountAndMixRequestManagerActor.Status(
+        mixRequestAccountManager
+      )
   }
 
 }
 
-object AccountManagerActor {
+object AccountAndMixRequestManagerActor {
   def props(address: String,
             mixingProperties: MixingProperties,
+            numberOfMixRequestTaskToSchedule: Int,
             initialSeed: Long,
             balanceMonitorActor: ActorRef,
             mixedTransactionGeneratorActor: ActorRef,
             committerActor: ActorRef,
             validatorActor: ActorRef): Props =
     Props(
-      AccountManagerActor(
+      AccountAndMixRequestManagerActor(
         mixingAddress = address,
         mixingProperties = mixingProperties,
+        numberOfMixRequestTaskToSchedule = numberOfMixRequestTaskToSchedule,
         initialSeed = initialSeed,
         balanceMonitorActor = balanceMonitorActor,
         mixedTransactionGeneratorActor = mixedTransactionGeneratorActor,
         committerActor = committerActor,
         validatorActor = validatorActor
       )
+    )
+
+  def props(mixingProperties: MixingProperties,
+            numberOfMixRequestTaskToSchedule: Int,
+            initialSeed: Long,
+            balanceMonitorActor: ActorRef,
+            mixedTransactionGeneratorActor: ActorRef,
+            committerActor: ActorRef,
+            validatorActor: ActorRef): Props =
+    props(
+      address = UUID.randomUUID().toString,
+      mixingProperties = mixingProperties,
+      numberOfMixRequestTaskToSchedule = numberOfMixRequestTaskToSchedule,
+      initialSeed = initialSeed,
+      balanceMonitorActor = balanceMonitorActor,
+      mixedTransactionGeneratorActor = mixedTransactionGeneratorActor,
+      committerActor = committerActor,
+      validatorActor = validatorActor
     )
 
   case object ScheduleNewMixRequestTasks

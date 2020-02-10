@@ -1,16 +1,33 @@
-package com.gemini.jobcoin.mixrequest
+package com.gemini.jobcoin.mixrequest.models
 
 import java.time.LocalDateTime
 
 import com.gemini.jobcoin.accounting.IdentifiableTransaction
+import com.gemini.jobcoin.mixrequest.{
+  MixRequestTask,
+  MixRequestTaskEvent,
+  MixRequestTaskState
+}
 
+/**
+  * Parameter used to control the mixing
+  * @param minTransactionPerDestinationAddress minimum amount of transactions per destination address
+  * @param maxTransactionPerDestinationAddress maximum amount of transactions per destination address
+  * @param minTransactionAmount minimum amount per transaction
+  * @param maxTransactionAmount maximum amount per transaction
+  * @param maxScale number of digit to right of the decimal point
+  */
 case class MixingProperties(minTransactionPerDestinationAddress: Int,
                             maxTransactionPerDestinationAddress: Int,
                             minTransactionAmount: BigDecimal,
                             maxTransactionAmount: BigDecimal,
-                            maxScale: Int,
-                            numberOfMixRequestTaskToSchedule: Int)
+                            maxScale: Int)
 
+/**
+  * Adds mix request tasks to MixRequestWithBalance.
+  *  These mix request tasks track the state of all the mixing transactions
+  *  from mixing address to destinations addresses
+  */
 trait MixingMixRequest extends MixRequestWithBalanceDelegate {
   val mixRequestWithBalance: MixRequestWithBalance
   val mixRequestTasks: Map[String, MixRequestTask]
